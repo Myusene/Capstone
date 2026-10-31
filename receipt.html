@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Ationg's Fruit Shake - Receipt Intake </title>
+    </head>
+    <body>
+
+        <!-- ============ SIDEBAR ============ -->
+        <aside id="sidebar">
+            <h2>AFS: Inventory</h2>
+            <p><b>Ationg's</b><br>Fruit Shake</p>
+
+            <p>WORKSPACE</p>
+            <nav>
+                <a href="landingp.html">Dashboard</a> <br>
+                <a href="inventory.html">Inventory</a> <br>
+                <a href="product.html">Products</a> <br>
+                <a href="receipt.html"><b>Receipt intake</b></a> <br>
+            </nav>
+
+            <div>
+                <p><b>You're in control</b></p>
+                <p>Review every receipt and photo before updating stock.</p>
+            </div>
+
+            <div>
+                <p><b>Judd Ationg</b><br>Store Owner</p>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </aside>
+
+        <main>
+
+            <header>
+                <p>Workspace / Inventory / <b>Receipt intake</b></p>
+            </header>
+
+            <p>SCAN &amp; STOCK UP</p>
+            <h1>Receipt intake</h1>
+            <p>Take a photo of a receipt or upload one. Review what was read, then add it to your inventory.</p>
+
+            <p id="message"></p>
+
+            <!-- ============ STEP 1: PHOTO ============ -->
+            <fieldset>
+                <legend>1. Receipt photo</legend>
+
+                <!-- capture="environment" opens the back camera on phones -->
+                <label for="receiptFile">Take a photo or upload:</label>
+                <input type="file" id="receiptFile" accept="image/*" capture="environment">
+                <br><br>
+
+                <button type="button" id="camBtn">Use live camera</button>
+                <button type="button" id="snapBtn" style="display:none">Capture</button>
+                <br>
+
+                <video id="video" autoplay playsinline style="display:none; max-width:100%"></video>
+                <img id="preview" alt="Receipt preview" style="display:none; max-width:100%; max-height:300px">
+                <br>
+                <progress id="bar" max="1" value="0" style="display:none"></progress>
+                <p id="status"></p>
+            </fieldset>
+
+            <br>
+
+            <!-- ============ STEP 2: REVIEW ============ -->
+            <fieldset id="reviewBox" style="display:none">
+                <legend>2. Review &amp; add to inventory</legend>
+                <p>
+                    Scanning is not perfect, so check every row. For each item, choose the existing product it
+                    belongs to (stock is added to it) or leave it as <b>New product</b>.
+                    <b>Amount</b> is in the product's own unit (g, ml or pcs), <b>Line total</b> is what you paid.
+                </p>
+
+                <table border="1" cellpadding="4">
+                    <thead>
+                        <tr>
+                            <th>Item (from receipt)</th>
+                            <th>Goes to</th>
+                            <th>Type</th>
+                            <th>Amount to add</th>
+                            <th>Line total (PHP)</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="reviewBody"></tbody>
+                </table>
+                <br>
+                <button type="button" id="addRowBtn">+ Add row</button>
+                <button type="button" id="saveBtn">Add to inventory</button>
+
+                <details>
+                    <summary>Raw text the scanner read</summary>
+                    <pre id="rawText"></pre>
+                </details>
+            </fieldset>
+
+        </main>
+
+        <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+        <script src="backendsystem.js"></script>
+        <script src="receipt.js"></script>
+    </body>
+</html>

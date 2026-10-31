@@ -11,7 +11,7 @@
             <nav> <a href="landingp.html">Overview</a> </nav>
             <nav> <a href="inventory.html">Inventory</a> </nav>
             <nav> <a href="product.html">Products</a> </nav>
-            
+            <nav> <a href="add_product.html"><b>Add Product</b></a> </nav>
             <button onclick="logout()">Log Out</button>
         </div>
         <br>
@@ -62,10 +62,12 @@
                 PHP <input type="number" id="productPrice" placeholder="0.00" min="0" step="any" required>
                 <br><br>
 
-                <label for="productUnitCost">Unit cost *</label><br>
-                PHP <input type="number" id="productUnitCost" placeholder="0.00" min="0" step="any" required>
+                <label for="productCost">Cost of this stock *</label><br>
+                PHP <input type="number" id="productCost" placeholder="0.00" min="0" step="any" required>
 
-                <p>Price is what you charge. Unit cost is used to calculate inventory value.</p>
+                <p>Price is what you charge. Cost is what you paid for the whole amount entered under
+                   Opening stock (for example, 5 kg of mango that cost PHP 300 is a cost of 300).
+                   It is not multiplied by the quantity. Inventory value adds up the cost of every entry.</p>
             </fieldset>
 
             <!-- OPENING STOCK -->
@@ -73,7 +75,7 @@
                 <legend>Opening stock</legend>
                 <p>Downtown store</p>
 
-                <label for="productQuantity">Quantity on hand *</label><br>
+                <label for="productQuantity">Quantity on hand * (in the unit below: 5 kg = 5000 g)</label><br>
                 <input type="number" id="productQuantity" placeholder="0" min="0" step="any" required>
                 <br><br>
 

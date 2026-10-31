@@ -199,50 +199,136 @@ async function handleRestockSubmit(event) {
   refreshAll();
 }
 
-function handleUse(table, id) {
+function closeDialog(id) {
+  document.getElementById(id).close();
+}
+
+// ---------- Use / Spoiled window (<dialog id="stockOutDialog">) ----------
+
+function openStockOut(table, id, reason) {
   const p = findProduct(table, id);
-  const amount = prompt("Use how many " + p.unit + " of " + p.name + "? (in stock: " + p.quantity + ")");
-  if (amount === null) return;
-  runAction(useStock(table, id, amount, "USED"));
+  const spoiled = reason === "SPOILED";
+  document.getElementById("stockOutTable").value = table;
+  document.getElementById("stockOutId").value = id;
+  document.getElementById("stockOutReason").value = reason;
+  document.getElementById("stockOutTitle").textContent = (spoiled ? "Record spoiled stock: " : "Use stock: ") + p.name;
+  document.getElementById("stockOutCurrent").textContent = "In stock now: " + Number(p.quantity) + " " + p.unit;
+  document.getElementById("stockOutLabel").textContent = spoiled ? "Amount spoiled or wasted *" : "Amount used *";
+  document.getElementById("stockOutSubmit").textContent = spoiled ? "Record spoiled" : "Use stock";
+  document.getElementById("stockOutUnit").textContent = p.unit;
+  document.getElementById("stockOutAmount").value = "";
+  document.getElementById("stockOutError").textContent = "";
+  document.getElementById("stockOutDialog").showModal();
+  document.getElementById("stockOutAmount").focus();
+}
+
+function handleUse(table, id) {
+  openStockOut(table, id, "USED");
 }
 
 function handleSpoiled(table, id) {
-  const p = findProduct(table, id);
-  const amount = prompt("How many " + p.unit + " of " + p.name + " spoiled or were wasted?");
-  if (amount === null) return;
-  runAction(useStock(table, id, amount, "SPOILED"));
+  openStockOut(table, id, "SPOILED");
 }
+
+async function handleStockOutSubmit(event) {
+  event.preventDefault();
+  const error = document.getElementById("stockOutError");
+  const table = document.getElementById("stockOutTable").value;
+  const id = document.getElementById("stockOutId").value;
+  const reason = document.getElementById("stockOutReason").value;
+  const amount = Number(document.getElementById("stockOutAmount").value);
+
+  if (!(amount > 0)) { error.textContent = "Enter an amount greater than 0."; return; }
+
+  const result = await useStock(table, id, amount, reason);
+  if (!result.ok) { error.textContent = result.message; return; }
+
+  closeDialog("stockOutDialog");
+  showMessage(result.message, true);
+  refreshAll();
+}
+
+// ---------- Edit window (<dialog id="editDialog">) ----------
 
 function handleEdit(table, id) {
   const p = findProduct(table, id);
+  document.getElementById("editTable").value = table;
+  document.getElementById("editId").value = id;
+  document.getElementById("editTitle").textContent = "Edit " + p.name;
+  document.getElementById("editName").value = p.name;
+  document.getElementById("editSku").value = p.sku || "";
+  document.getElementById("editPrice").value = p.price;
+  document.getElementById("editCost").value = p.total_cost;
+  document.getElementById("editMinStock").value = p.reorder_level;
+  document.getElementById("editMinUnit").textContent = p.unit;
+  document.getElementById("editExpiry").value = p.expiry_date || "";
+  document.getElementById("editError").textContent = "";
+  document.getElementById("editDialog").showModal();
+  document.getElementById("editName").focus();
+}
 
-  const name = prompt("Product name:", p.name);              if (name === null) return;
-  const sku = prompt("SKU:", p.sku || "");                    if (sku === null) return;
-  const price = prompt("Price (PHP):", p.price);              if (price === null) return;
-  const cost = prompt("Cost of this stock, PHP (the whole amount, not per g / ml / pcs):", p.total_cost);   if (cost === null) return;
-  const minStock = prompt("Minimum stock:", p.reorder_level); if (minStock === null) return;
-  const expiry = prompt("Expiry date (YYYY-MM-DD, blank for none):", p.expiry_date || ""); if (expiry === null) return;
+async function handleEditSubmit(event) {
+  event.preventDefault();
+  const error = document.getElementById("editError");
+  const table = document.getElementById("editTable").value;
+  const id = document.getElementById("editId").value;
+  const name = document.getElementById("editName").value.trim();
+  const sku = document.getElementById("editSku").value.trim();
 
-  if (!name.trim()) { showMessage("Product name is required.", false); return; }
+  if (!name) { error.textContent = "Product name is required."; return; }
+  const skuTaken = sku && ALL.some(function (o) {
+    return o.id !== id && (o.sku || "").toLowerCase() === sku.toLowerCase();
+  });
+  if (skuTaken) { error.textContent = "That SKU is already used by another product."; return; }
 
-  runAction(updateProduct(table, id, {
-    name: name.trim(),
-    sku: sku.trim() || null,
-    price: Number(price) || 0,
-    total_cost: Number(cost) || 0,
-    reorder_level: Number(minStock) || 0,
-    expiry_date: expiry.trim() || null
-  }));
+  const result = await updateProduct(table, id, {
+    name: name,
+    sku: sku || null,
+    price: Number(document.getElementById("editPrice").value) || 0,
+    total_cost: Number(document.getElementById("editCost").value) || 0,
+    reorder_level: Number(document.getElementById("editMinStock").value) || 0,
+    expiry_date: document.getElementById("editExpiry").value || null
+  });
+  if (!result.ok) { error.textContent = result.message; return; }
+
+  closeDialog("editDialog");
+  showMessage(result.message, true);
+  refreshAll();
 }
 
 function handleArchive(table, id, archive) {
   runAction(updateProduct(table, id, { archived: archive }));
 }
 
+// ---------- Delete window (<dialog id="deleteDialog">) ----------
+
 function handleDelete(table, id) {
   const p = findProduct(table, id);
-  if (!confirm("Delete " + p.name + "? This cannot be undone. (Archive keeps it instead.)")) return;
-  runAction(deleteProduct(table, id));
+  document.getElementById("deleteTable").value = table;
+  document.getElementById("deleteId").value = id;
+  document.getElementById("deleteText").textContent =
+    "Delete " + p.name + "? This cannot be undone.";
+  // archiving only makes sense for products that are not archived yet
+  document.getElementById("deleteArchiveBtn").style.display = p.archived ? "none" : "inline";
+  document.getElementById("deleteDialog").showModal();
+}
+
+async function handleDeleteSubmit(event) {
+  event.preventDefault();
+  const result = await deleteProduct(
+    document.getElementById("deleteTable").value,
+    document.getElementById("deleteId").value
+  );
+  closeDialog("deleteDialog");
+  showMessage(result.message, result.ok);
+  if (result.ok) refreshAll();
+}
+
+function handleArchiveInstead() {
+  const table = document.getElementById("deleteTable").value;
+  const id = document.getElementById("deleteId").value;
+  closeDialog("deleteDialog");
+  handleArchive(table, id, true);
 }
 
 // ---------- backup ----------

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <title> Ationg's Products </title>
+    </head>
+
+    <body>
+        <p>Jazzer Bading</p>
+
+        <div>
+            <nav> <a href="landingp.html">Overview</a> </nav>
+            <nav> <a href="inventory.html">Inventory</a> </nav>
+            <nav> <a href="product.html">Products</a> </nav>
+            <nav> <a href="add_product.html"><b>Add Product</b></a> </nav>
+            <button onclick="logout()">Log Out</button>
+        </div>
+        <br>
+
+        <p>Workspace / Inventory / Add product</p>
+
+        <p>YOUR STOCK, ORGANIZED</p>
+        <h1>Add product</h1>
+        <p>Create a product record with its details, pricing and opening stock.</p>
+
+        <p id="message"></p>
+
+        <form id="addProductForm" onsubmit="handleAddProduct(event)">
+
+            <!-- PRODUCT DETAILS -->
+            <fieldset>
+                <legend>Product details</legend>
+                <p>* Required fields</p>
+
+                <label for="productName">Product name *</label><br>
+                <input type="text" id="productName" placeholder="e.g. Mango" required>
+                <br><br>
+
+                <label for="productType">Type *</label><br>
+                <select id="productType" onchange="handleTypeChange()" required>
+                    <option value="">Select a type</option>
+                    <option value="fruits">Fruits</option>
+                    <option value="choco_bar">Choco bar</option>
+                    <option value="cheese">Cheese</option>
+                    <option value="oatmilk">Oat milk</option>
+                    <option value="sugar">Sugar</option>
+                    <option value="cups">Cups</option>
+                    <option value="biscuits">Biscuits</option>
+                    <option value="ice">Ice</option>
+                </select>
+                <br><br>
+
+                <label for="productSku">SKU *</label><br>
+                <input type="text" id="productSku" placeholder="e.g. M-001" required>
+            </fieldset>
+
+            <!-- PRICING -->
+            <fieldset>
+                <legend>Pricing</legend>
+                <p>PHP</p>
+
+                <label for="productPrice">Price *</label><br>
+                PHP <input type="number" id="productPrice" placeholder="0.00" min="0" step="any" required>
+                <br><br>
+
+                <label for="productUnitCost">Unit cost *</label><br>
+                PHP <input type="number" id="productUnitCost" placeholder="0.00" min="0" step="any" required>
+
+                <p>Price is what you charge. Unit cost is used to calculate inventory value.</p>
+            </fieldset>
+
+            <!-- OPENING STOCK -->
+            <fieldset>
+                <legend>Opening stock</legend>
+                <p>Downtown store</p>
+
+                <label for="productQuantity">Quantity on hand *</label><br>
+                <input type="number" id="productQuantity" placeholder="0" min="0" step="any" required>
+                <br><br>
+
+                <label for="productUnit">Stock unit</label><br>
+                <!-- fills in by itself when you pick a Type: fruits = g, choco bar = pcs, oat milk = ml... -->
+                <input type="text" id="productUnit" placeholder="Pick a type first" readonly>
+                <br><br>
+
+                <label for="productMinStock">Minimum stock</label><br>
+                <input type="number" id="productMinStock" placeholder="0" min="0" step="any">
+
+                <p>You'll see a low-stock alert when quantity falls below the minimum.</p>
+
+                <label for="productExpiry">Expiry date (optional)</label><br>
+                <input type="date" id="productExpiry">
+            </fieldset>
+
+            <br>
+            <label>
+                <input type="checkbox" id="addAnother"> Add another product after saving
+            </label>
+            <br><br>
+
+            <button type="button" onclick="window.location.href='inventory.html'">Cancel</button>
+            <button type="submit">+ Add product</button>
+        </form>
+
+        <p>Prices in PHP. Opening stock is added only when you save this product.
+           Future receipts, counts and sales update stock balances.</p>
+
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="backendsystem.js"></script>
+    </body>
+</html>

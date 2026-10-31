@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <title> Ationg's Products </title>
+    </head>
+
+    <body>
+        <p>Jazzer Bading</p>
+
+        <!-- ============ SIDEBAR ============ -->
+        <aside id="sidebar">
+            <h2>AFS: Inventory</h2>
+            <p><b>Ationg's</b><br>Fruit Shake</p>
+
+            <p>WORKSPACE</p>
+            <nav>
+                <a href="landingp.html">Dashboard</a> <br>
+                <a href="inventory.html">Inventory</a> <br>
+                <a href="product.html"><b>Products</b></a> <br>
+                <a href="add_product.html">Add Product</a> <br>
+                <!-- add these links when the pages exist:
+                <a href="receipt.html">Receipt intake</a> <br>
+                <a href="sales.html">Sales</a>
+                -->
+            </nav>
+
+            <div>
+                <p><b>You're in control</b></p>
+                <p>Review every receipt and photo before updating stock.</p>
+            </div>
+
+            <div>
+                <p><b>Judd Ationg</b><br>Store Owner</p>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </aside>
+
+        <main>
+
+            <!-- ============ TOP BAR ============ -->
+            <header>
+                <p>Workspace / <b>Product</b></p>
+                <span>All changes saved</span>
+            </header>
+
+            <p id="message"></p>
+
+            <!-- ============ PAGE HEADER ============ -->
+            <p>SHAKE MENU &amp; RECIPES</p>
+            <h1>A good shake starts with a recipe.</h1>
+            <p>Browse the menu, check the measurements, and blend with confidence.</p>
+            <button onclick="handleAddRecipe()">Add Recipe</button>
+
+            <!-- ============ SHAKE MENU ============ -->
+            <h2>Shake menu <span id="shakeCount">0</span></h2>
+            <p>Sample recipes &amp; prices</p>
+
+            <input type="text" id="shakeSearch" placeholder="Search shakes or ingredients" oninput="renderShakes()">
+            <select id="shakeFilter" onchange="renderShakes()">
+                <option value="all">All shakes</option>
+                <option value="single">Single fruit</option>
+                <option value="blend">Blends</option>
+            </select>
+
+            <br><br>
+
+            <!-- cards are created by renderShakes() -->
+            <div id="shakeGrid"></div>
+
+            <!-- ============ NOTE ============ -->
+            <div>
+                <p><b>The same base, every blend.</b></p>
+                <p id="baseNote"></p>
+            </div>
+
+        </main>
+
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="backendsystem.js"></script>
+    </body>
+</html>

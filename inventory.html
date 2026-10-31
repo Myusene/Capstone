@@ -154,6 +154,31 @@
 
         </main>
 
+        <!-- ============ RESTOCK WINDOW ============ -->
+        <dialog id="restockDialog" style="padding: 16px; min-width: 300px;">
+            <form onsubmit="handleRestockSubmit(event)">
+                <h2 id="restockTitle">Restock</h2>
+                <p id="restockCurrent"></p>
+
+                <input type="hidden" id="restockTable">
+                <input type="hidden" id="restockId">
+
+                <label for="restockAmount">Amount received *</label><br>
+                <input type="number" id="restockAmount" min="0" step="any" placeholder="0" required>
+                <span id="restockUnit"></span>
+                <br><br>
+
+                <label for="restockCost">Cost of this delivery (PHP)</label><br>
+                PHP <input type="number" id="restockCost" min="0" step="any" placeholder="0.00">
+                <p><small>The whole amount you paid for this delivery. It is added to the product's cost, not multiplied by the amount.</small></p>
+
+                <p id="restockError" style="color:red"></p>
+
+                <button type="button" onclick="closeRestock()">Cancel</button>
+                <button type="submit">Restock</button>
+            </form>
+        </dialog>
+
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="backendsystem.js"></script>
         <script src="inventory.js"></script>

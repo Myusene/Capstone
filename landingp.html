@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html>
 
 <!--
@@ -16,6 +15,8 @@
         <div>
             <nav> <a href="landingp.html">Overview</a> </nav>
             <nav> <a href="inventory.html">Inventory</a> </nav>
+            <nav> <a href="product.html">Products</a> </nav>
+            <nav> <a href="add_product.html">Add Product</a> </nav>
             <button onclick="logout()">Log Out</button>
         </div>
         <br>
@@ -26,15 +27,21 @@
         <p>Low-stock items: <span id="lowStockCount">0</span></p>
         <p>Expiring soon / expired: <span id="expiringCount">0</span></p>
 
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="backendsystem.js"></script>
         <script>
-            requireLogin();
-
-            const s = getSummary();
-            document.getElementById("totalItems").textContent = s.totalItems;
-            document.getElementById("totalValue").textContent = "PHP " + s.totalValue.toFixed(2);
-            document.getElementById("lowStockCount").textContent = s.lowStockCount;
-            document.getElementById("expiringCount").textContent = s.expiringCount;
+            (async function () {
+                if (!(await requireLogin())) return;
+                try {
+                    const s = await getSummary();
+                    document.getElementById("totalItems").textContent = s.totalItems;
+                    document.getElementById("totalValue").textContent = money(s.totalValue);
+                    document.getElementById("lowStockCount").textContent = s.lowStockCount;
+                    document.getElementById("expiringCount").textContent = s.expiringCount;
+                } catch (e) {
+                    document.body.insertAdjacentHTML("beforeend", "<p style='color:red'>" + esc(e.message) + "</p>");
+                }
+            })();
         </script>
     </body>
 </html>

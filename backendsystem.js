@@ -92,8 +92,22 @@ const PRODUCTS_KEY = "afs-products";
 const LOGS_KEY = "afs-logs";
 
 function readList(key) {
-  try { return JSON.parse(localStorage.getItem(key)) || []; }
+  let list;
+  try { list = JSON.parse(localStorage.getItem(key)) || []; }
   catch (e) { return []; }
+  if (key === PRODUCTS_KEY) list.forEach(upgradeProduct);
+  return list;
+}
+
+// COST RULE: every entry stores the TOTAL cost of the stock entered (total_cost).
+// It is never multiplied by the quantity. Quantity is only an amount in
+// g, ml or pcs. The inventory value is simply the sum of every entry's cost.
+// Older entries stored a "unit_cost": the number that was typed in is kept as-is.
+function upgradeProduct(p) {
+  if (p.total_cost === undefined) {
+    p.total_cost = Number(p.unit_cost) || 0;
+  }
+  delete p.unit_cost;
 }
 function writeList(key, list) {
   localStorage.setItem(key, JSON.stringify(list));
@@ -149,14 +163,15 @@ async function getSummary() {
   return {
     totalItems: active.length,
     totalValue: active.reduce(function (s, p) {
-      return s + Number(p.quantity) * Number(p.unit_cost);
+      return s + Number(p.total_cost);   // each entry's cost, not multiplied by quantity
     }, 0),
     lowStockCount: active.filter(function (p) { return productStatus(p) === "low"; }).length,
     expiringCount: getExpiring(active, 3).length
   };
 }
 
-// product = { item_table, name, sku, price, unit_cost, quantity, unit, reorder_level, expiry_date }
+// product = { item_table, name, sku, price (selling price), total_cost (what this
+//             stock cost in total), quantity (g / ml / pcs), unit, reorder_level, expiry_date }
 async function saveProduct(product) {
   const list = readList(PRODUCTS_KEY);
   const sku = product.sku.toLowerCase();
@@ -173,13 +188,18 @@ async function saveProduct(product) {
   return { ok: true, message: product.name + " was added to the inventory." };
 }
 
-async function restockProduct(table, id, amount) {
+// amount = how much arrived (g / ml / pcs), cost = what that delivery cost in total.
+// The delivery's cost is added to the product's cost as one more entry.
+async function restockProduct(table, id, amount, cost) {
   amount = Number(amount);
+  cost = Number(cost) || 0;
   if (!(amount > 0)) return { ok: false, message: "Enter a number greater than 0." };
+  if (cost < 0) return { ok: false, message: "Cost cannot be negative." };
   const list = readList(PRODUCTS_KEY);
   const i = findIndexOf(list, table, id);
   if (i < 0) return { ok: false, message: "Product not found." };
   list[i].quantity = Number(list[i].quantity) + amount;
+  list[i].total_cost = Number(list[i].total_cost) + cost;
   list[i].updated_at = new Date().toISOString();
   writeList(PRODUCTS_KEY, list);
   addLog("RESTOCKED", list[i].name, amount);
@@ -241,7 +261,7 @@ async function handleAddProduct(event) {
     name: document.getElementById("productName").value.trim(),
     sku: document.getElementById("productSku").value.trim(),
     price: Number(document.getElementById("productPrice").value),
-    unit_cost: Number(document.getElementById("productUnitCost").value),
+    total_cost: Number(document.getElementById("productCost").value) || 0,
     quantity: Number(document.getElementById("productQuantity").value),
     unit: document.getElementById("productUnit").value,
     reorder_level: Number(document.getElementById("productMinStock").value) || 0,

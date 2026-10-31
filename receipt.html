@@ -46,7 +46,7 @@
                 <legend>1. Receipt photo</legend>
 
                 <!-- capture="environment" opens the back camera on phones -->
-                <label for="receiptFile">Take a photo or upload:</label>
+                <label for="receiptFile">Take a photo or upload, then press Read receipt:</label>
                 <input type="file" id="receiptFile" accept="image/*" capture="environment">
                 <br><br>
 
@@ -57,6 +57,7 @@
                 <video id="video" autoplay playsinline style="display:none; max-width:100%"></video>
                 <img id="preview" alt="Receipt preview" style="display:none; max-width:100%; max-height:300px">
                 <br>
+                <button type="button" id="readBtn" disabled>Read receipt</button>
                 <progress id="bar" max="1" value="0" style="display:none"></progress>
                 <p id="status"></p>
             </fieldset>
@@ -69,7 +70,9 @@
                 <p>
                     Scanning is not perfect, so check every row. For each item, choose the existing product it
                     belongs to (stock is added to it) or leave it as <b>New product</b>.
-                    <b>Amount</b> is in the product's own unit (g, ml or pcs), <b>Line total</b> is what you paid.
+                    <b>Amount</b> is in the product's own unit (g, ml or pcs: 5 kg = 5000 g).
+                    <b>Line total</b> is what you paid for that whole line. It is added to the product's cost
+                    as one entry and is not multiplied by the amount.
                 </p>
 
                 <table border="1" cellpadding="4">

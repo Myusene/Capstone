@@ -5,70 +5,253 @@
     HTML FILE: Structure of the page
     backendsystem.js: database + inventory functions
     inventory.js: connects the buttons on this page to the backend
+
+    This page has 2 views inside it (like the design):
+      1. viewList = the inventory list
+      2. viewAdd  = the "Add product" form
+    showView('list') / showView('add') switches between them.
 -->
     <head>
         <title> Ationg's Fruit Shake - Inventory </title>
     </head>
     <body>
-        <h1>Ationg's Fruit Shake Inventory System</h1>
 
-        <div>
-            <nav> <a href="landingp.html">Overview</a> </nav>
-            <nav> <a href="inventory.html">Inventory</a> </nav>
-            <button onclick="logout()">Log Out</button>
-        </div>
-        <br>
+        <!-- ============ SIDEBAR ============ -->
+        <aside id="sidebar">
+            <h2>AFS: Inventory</h2>
+            <p><b>Ationg's</b><br>Fruit Shake</p>
 
-        <p id="message"></p>
+            <p>WORKSPACE</p>
+            <nav>
+                <a href="landingp.html">Dashboard</a> <br>
+                <a href="inventory.html">Inventory <span id="navProductCount">0</span></a> <br>
+                <!-- add these links when the pages exist:
+                <a href="product.html">Product</a> <br>
+                <a href="receipt.html">Receipt intake</a> <br>
+                <a href="sales.html">Sales</a>
+                -->
+            </nav>
 
-        <!-- ADD ITEM -->
-        <h2>Add Item</h2>
-        <form onsubmit="handleAddItem(event)">
-            <input type="text" id="itemName" placeholder="Item name (e.g. Mango)">
-            <input type="text" id="itemCategory" placeholder="Category (Fruit, Milk, Ice...)">
-            <input type="number" id="itemQuantity" placeholder="Quantity" min="0" step="any">
-            <input type="text" id="itemUnit" placeholder="Unit (kg, pcs, L)">
-            <input type="number" id="itemPrice" placeholder="Price per unit" min="0" step="any">
-            <input type="number" id="itemReorder" placeholder="Low-stock level" min="0" step="any">
-            <label>Expiry: <input type="date" id="itemExpiry"></label>
-            <button type="submit">Add Item</button>
-        </form>
+            <div>
+                <p><b>You're in control</b></p>
+                <p>Review every receipt and photo before updating stock.</p>
+            </div>
 
-        <!-- ALERTS -->
-        <h2>Alerts</h2>
-        <p><b>Low stock:</b> <span id="lowStockList"></span></p>
-        <p><b>Expiring in 3 days (or expired):</b> <span id="expiringList"></span></p>
+            <div>
+                <p><b id="userName">Judd Ationg</b><br><span id="userRole">Store Owner</span></p>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </aside>
 
-        <!-- INVENTORY TABLE -->
-        <h2>Inventory</h2>
-        <input type="text" id="searchBox" placeholder="Search name or category" oninput="renderInventory()">
-        <button onclick="document.getElementById('searchBox').value=''; renderInventory()">Clear</button>
-        <p id="totalValue"></p>
+        <main>
 
-        <table border="1" cellpadding="4">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Qty</th>
-                    <th>Unit</th>
-                    <th>Price</th>
-                    <th>Low-stock level</th>
-                    <th>Expiry</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="inventoryBody"></tbody>
-        </table>
+            <!-- ============ TOP BAR ============ -->
+            <header>
+                <p id="breadcrumb">Workspace / Inventory</p>
+                <input type="text" id="globalSearch" placeholder="Search anything" oninput="handleGlobalSearch()">
+                <span id="saveStatus">All changes saved</span>
+            </header>
 
-        <!-- ACTIVITY LOG -->
-        <h2>Recent Activity</h2>
-        <ul id="logList"></ul>
+            <p id="message"></p>
 
-        <!-- BACKUP -->
-        <h2>Backup</h2>
-        <button onclick="handleExport()">Export Data</button>
-        <input type="file" id="importFile" accept=".json" onchange="handleImport(event)">
+            <!-- =====================================================
+                 VIEW 1: INVENTORY LIST
+                 ===================================================== -->
+            <section id="viewList">
+
+                <p>YOUR STOCK, ORGANIZED</p>
+                <h1>Inventory</h1>
+                <p>Manage product records, quantities and pricing in one place.</p>
+                <button onclick="showView('add')">+ Add product</button>
+
+                <!-- STAT CARDS -->
+                <div id="statCards">
+                    <div>
+                        <p>Active products</p>
+                        <h2 id="statActive">0</h2>
+                        <p id="statActiveNote">0 products need attention today</p>
+                    </div>
+                    <div>
+                        <p>Stock records</p>
+                        <h2 id="statUnits">0</h2>
+                        <p>Across all active products</p>
+                    </div>
+                    <div>
+                        <p>Inventory value - at cost</p>
+                        <h2 id="statValue">PHP 0.00</h2>
+                        <p>Based on current unit costs</p>
+                    </div>
+                    <div>
+                        <p>Below minimum stock</p>
+                        <h2 id="statLow">0</h2>
+                        <p id="statLowNote">0 need attention today</p>
+                    </div>
+                </div>
+
+                <br>
+
+                <!-- TABS -->
+                <div id="tabs">
+                    <button id="tabAll"     onclick="setTab('all')">All products <span id="countAll">0</span></button>
+                    <button id="tabLow"     onclick="setTab('low')">Low stock <span id="countLow">0</span></button>
+                    <button id="tabOut"     onclick="setTab('out')">Out of stock <span id="countOut">0</span></button>
+                    <button id="tabArchive" onclick="setTab('archived')">Archived</button>
+                </div>
+
+                <!-- FILTERS -->
+                <div id="filters">
+                    <input type="text" id="searchBox" placeholder="Search products or SKU..." oninput="renderInventory()">
+
+                    <select id="typeFilter" onchange="renderInventory()">
+                        <option value="">All types</option>
+                        <option value="fruits">Fruits</option>
+                        <option value="choco_bar">Choco bar</option>
+                        <option value="cheese">Cheese</option>
+                        <option value="oatmilk">Oat milk</option>
+                        <option value="sugar">Sugar</option>
+                        <option value="cups">Cups</option>
+                        <option value="biscuits">Biscuits</option>
+                        <option value="ice">Ice</option>
+                    </select>
+
+                    <select id="statusFilter" onchange="renderInventory()">
+                        <option value="">Stock status</option>
+                        <option value="in">In stock</option>
+                        <option value="low">Low stock</option>
+                        <option value="out">Out of stock</option>
+                    </select>
+
+                    <select id="sortBy" onchange="renderInventory()">
+                        <option value="recent">Recently updated</option>
+                        <option value="name">Name (A-Z)</option>
+                        <option value="qtyLow">Quantity (low to high)</option>
+                        <option value="qtyHigh">Quantity (high to low)</option>
+                    </select>
+                </div>
+
+                <!-- PRODUCT TABLE -->
+                <table border="1" cellpadding="4">
+                    <thead>
+                        <tr>
+                            <th>Product name</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Unit cost</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryBody"></tbody>
+                </table>
+
+                <!-- Alerts + activity (extra, from the earlier version) -->
+                <h2>Alerts</h2>
+                <p><b>Low stock:</b> <span id="lowStockList"></span></p>
+                <p><b>Expiring in 3 days (or expired):</b> <span id="expiringList"></span></p>
+
+                <h2>Recent Activity</h2>
+                <ul id="logList"></ul>
+
+                <h2>Backup</h2>
+                <button onclick="handleExport()">Export Data</button>
+                <input type="file" id="importFile" accept=".json" onchange="handleImport(event)">
+            </section>
+
+
+            <!-- =====================================================
+                 VIEW 2: ADD PRODUCT
+                 ===================================================== -->
+            <section id="viewAdd" hidden>
+
+                <p>YOUR STOCK, ORGANIZED</p>
+                <h1>Add product</h1>
+                <p>Create a product record with its details, pricing and opening stock.</p>
+
+                <div>
+                    <button onclick="showView('list')">All products <span id="countAll2">0</span></button>
+                    <button disabled>+ Add product</button>
+                </div>
+
+                <form id="addProductForm" onsubmit="handleAddProduct(event)">
+
+                    <!-- PRODUCT DETAILS -->
+                    <fieldset>
+                        <legend>Product details</legend>
+                        <p>* Required fields</p>
+
+                        <label for="productName">Product name *</label><br>
+                        <input type="text" id="productName" placeholder="e.g. Mango" required>
+                        <br>
+
+                        <label for="productType">Type *</label><br>
+                        <select id="productType" onchange="handleTypeChange()" required>
+                            <option value="">Select a type</option>
+                            <option value="fruits">Fruits</option>
+                            <option value="choco_bar">Choco bar</option>
+                            <option value="cheese">Cheese</option>
+                            <option value="oatmilk">Oat milk</option>
+                            <option value="sugar">Sugar</option>
+                            <option value="cups">Cups</option>
+                            <option value="biscuits">Biscuits</option>
+                            <option value="ice">Ice</option>
+                        </select>
+                        <br>
+
+                        <label for="productSku">SKU *</label><br>
+                        <input type="text" id="productSku" placeholder="e.g. M-001" required>
+                    </fieldset>
+
+                    <!-- PRICING -->
+                    <fieldset>
+                        <legend>Pricing</legend>
+                        <p>PHP</p>
+
+                        <label for="productPrice">Price *</label><br>
+                        <input type="number" id="productPrice" placeholder="0.00" min="0" step="any" required>
+                        <br>
+
+                        <label for="productUnitCost">Unit cost *</label><br>
+                        <input type="number" id="productUnitCost" placeholder="0.00" min="0" step="any" required>
+                        <p>Price is what you charge. Unit cost is used to calculate inventory value.</p>
+                    </fieldset>
+
+                    <!-- OPENING STOCK -->
+                    <fieldset>
+                        <legend>Opening stock</legend>
+                        <p>Downtown store</p>
+
+                        <label for="productQuantity">Quantity on hand *</label><br>
+                        <input type="number" id="productQuantity" placeholder="0" min="0" step="any" required>
+                        <br>
+
+                        <label for="productUnit">Stock unit</label><br>
+                        <!-- filled in automatically from the Type: fruits = g, choco bar = pcs, oat milk = ml ... -->
+                        <input type="text" id="productUnit" value="" placeholder="Pick a type first" readonly>
+                        <br>
+
+                        <label for="productMinStock">Minimum stock</label><br>
+                        <input type="number" id="productMinStock" placeholder="0" min="0" step="any">
+                        <p>You'll see a low-stock alert when quantity falls below the minimum.</p>
+
+                        <label for="productExpiry">Expiry date (optional)</label><br>
+                        <input type="date" id="productExpiry">
+                    </fieldset>
+
+                    <br>
+                    <label>
+                        <input type="checkbox" id="addAnother"> Add another product after saving
+                    </label>
+                    <br><br>
+                    <button type="button" onclick="showView('list')">Cancel</button>
+                    <button type="submit">+ Add product</button>
+                </form>
+
+                <p>Prices in PHP. Opening stock is added only when you save this product.
+                   Future receipts, counts and sales update stock balances.</p>
+            </section>
+
+        </main>
 
         <script src="backendsystem.js"></script>
         <script src="inventory.js"></script>

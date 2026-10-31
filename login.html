@@ -1,26 +1,20 @@
-<html>
-    <head>
-        <title> Ationg's Fruit Shake </title>
-    </head>
-    <body>  
-        <script src="backendsystem.js"></script>
-        
-        <form class="login-container" onsubmit="attemptLogin(event)">
-  <h2>Login</h2>
-  
-  <label for="username">Username:</label>
-  <input type="text" id="username" placeholder="Enter username">
-  
-  <label for="password">Password:</label>
-  <input type="password" id="password" placeholder="Enter password">
-  
-  <!-- The button stays as a submit button, but the form handles it -->
-  <button type="submit">Log In</button>
-  
-  <p id="loginMessage"></p>
-</form>
-<html>
-
-
-    </body>
-</html>
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="../css/style.css">
+<title>Ationg's Fruit Shake Shop - Log in</title></head>
+<body>
+<div id="app"><div class="login">
+  <header><div class="logo">AFS</div><b>Ationg's Fruit Shake Shop</b></header>
+  <h1>Sign in</h1>
+  <p class="l">Ationg’s Fruit Shake. Use admin / admin for this demo.</p>
+  <form onsubmit="login(event)">
+    <input id="username" placeholder="Username" autocomplete="username">
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn g" type="submit">Log in</button>
+    <p id="loginMessage" style="color:var(--bad)"></p>
+  </form>
+</div></div>
+<script src="../js/auth.js"></script>
+<script>if(isLoggedIn())location.replace("index.html")</script>
+</body></html>

@@ -160,13 +160,43 @@ async function runAction(promise) {
   if (result.ok) refreshAll();
 }
 
+// Restock opens a window (the <dialog id="restockDialog"> in inventory.html)
 function handleRestock(table, id) {
   const p = findProduct(table, id);
-  const amount = prompt("Restock how many " + p.unit + " of " + p.name + "?");
-  if (amount === null) return;
-  const cost = prompt("How much did this delivery cost in total (PHP)? Leave blank if unknown.", "0");
-  if (cost === null) return;
-  runAction(restockProduct(table, id, amount, cost));
+  document.getElementById("restockTable").value = table;
+  document.getElementById("restockId").value = id;
+  document.getElementById("restockTitle").textContent = "Restock " + p.name;
+  document.getElementById("restockCurrent").textContent =
+    "In stock now: " + Number(p.quantity) + " " + p.unit + " | Cost so far: " + money(p.total_cost);
+  document.getElementById("restockUnit").textContent = p.unit;
+  document.getElementById("restockAmount").value = "";
+  document.getElementById("restockCost").value = "";
+  document.getElementById("restockError").textContent = "";
+  document.getElementById("restockDialog").showModal();
+  document.getElementById("restockAmount").focus();
+}
+
+function closeRestock() {
+  document.getElementById("restockDialog").close();
+}
+
+async function handleRestockSubmit(event) {
+  event.preventDefault();
+  const error = document.getElementById("restockError");
+  const table = document.getElementById("restockTable").value;
+  const id = document.getElementById("restockId").value;
+  const amount = Number(document.getElementById("restockAmount").value);
+  const cost = Number(document.getElementById("restockCost").value) || 0;
+
+  if (!(amount > 0)) { error.textContent = "Enter an amount greater than 0."; return; }
+  if (cost < 0) { error.textContent = "Cost cannot be negative."; return; }
+
+  const result = await restockProduct(table, id, amount, cost);
+  if (!result.ok) { error.textContent = result.message; return; }
+
+  closeRestock();
+  showMessage(result.message, true);
+  refreshAll();
 }
 
 function handleUse(table, id) {

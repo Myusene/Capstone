@@ -1,0 +1,39 @@
+<html>
+
+<!--
+    LEGEND:
+    HTML FILE: Where the Main Information is + The Structure of the Website
+    JAVASCRIPT WHERE THE BACKEND SYSTEM WORKS/DATABASE
+    CSS: DESIGN
+-->
+    <head>
+        <title> Ationg's Fruit Shake </title>
+    </head>
+    <body>
+        <h1>Ationg's Fruit Shake Inventory System</h1>
+
+        <div>
+            <nav> <a href="landingp.html">Overview</a> </nav>
+            <nav> <a href="inventory.html">Inventory</a> </nav>
+            <button onclick="logout()">Log Out</button>
+        </div>
+        <br>
+
+        <h2>Overview</h2>
+        <p>Total items: <span id="totalItems">0</span></p>
+        <p>Total inventory value: <span id="totalValue">PHP 0.00</span></p>
+        <p>Low-stock items: <span id="lowStockCount">0</span></p>
+        <p>Expiring soon / expired: <span id="expiringCount">0</span></p>
+
+        <script src="backendsystem.js"></script>
+        <script>
+            requireLogin();
+
+            const s = getSummary();
+            document.getElementById("totalItems").textContent = s.totalItems;
+            document.getElementById("totalValue").textContent = "PHP " + s.totalValue.toFixed(2);
+            document.getElementById("lowStockCount").textContent = s.lowStockCount;
+            document.getElementById("expiringCount").textContent = s.expiringCount;
+        </script>
+    </body>
+</html>

@@ -5,11 +5,6 @@
     HTML FILE: Structure of the page
     backendsystem.js: database + inventory functions
     inventory.js: connects the buttons on this page to the backend
-
-    This page has 2 views inside it (like the design):
-      1. viewList = the inventory list
-      2. viewAdd  = the "Add product" form
-    showView('list') / showView('add') switches between them.
 -->
     <head>
         <title> Ationg's Fruit Shake - Inventory </title>
@@ -24,9 +19,9 @@
             <p>WORKSPACE</p>
             <nav>
                 <a href="landingp.html">Dashboard</a> <br>
-                <a href="inventory.html">Inventory <span id="navProductCount">0</span></a> <br>
+                <a href="inventory.html"><b>Inventory</b> <span id="navProductCount">0</span></a> <br>
+                <a href="product.html">Products</a> <br>
                 <!-- add these links when the pages exist:
-                <a href="product.html">Product</a> <br>
                 <a href="receipt.html">Receipt intake</a> <br>
                 <a href="sales.html">Sales</a>
                 -->
@@ -62,7 +57,7 @@
                 <p>YOUR STOCK, ORGANIZED</p>
                 <h1>Inventory</h1>
                 <p>Manage product records, quantities and pricing in one place.</p>
-                <button onclick="showView('add')">+ Add product</button>
+                <button onclick="window.location.href='add_product.html'">+ Add product</button>
 
                 <!-- STAT CARDS -->
                 <div id="statCards">
@@ -72,9 +67,9 @@
                         <p id="statActiveNote">0 products need attention today</p>
                     </div>
                     <div>
-                        <p>Stock records</p>
+                        <p>Expiring soon</p>
                         <h2 id="statUnits">0</h2>
-                        <p>Across all active products</p>
+                        <p>Within 3 days or already expired</p>
                     </div>
                     <div>
                         <p>Inventory value - at cost</p>
@@ -155,104 +150,11 @@
 
                 <h2>Backup</h2>
                 <button onclick="handleExport()">Export Data</button>
-                <input type="file" id="importFile" accept=".json" onchange="handleImport(event)">
-            </section>
-
-
-            <!-- =====================================================
-                 VIEW 2: ADD PRODUCT
-                 ===================================================== -->
-            <section id="viewAdd" hidden>
-
-                <p>YOUR STOCK, ORGANIZED</p>
-                <h1>Add product</h1>
-                <p>Create a product record with its details, pricing and opening stock.</p>
-
-                <div>
-                    <button onclick="showView('list')">All products <span id="countAll2">0</span></button>
-                    <button disabled>+ Add product</button>
-                </div>
-
-                <form id="addProductForm" onsubmit="handleAddProduct(event)">
-
-                    <!-- PRODUCT DETAILS -->
-                    <fieldset>
-                        <legend>Product details</legend>
-                        <p>* Required fields</p>
-
-                        <label for="productName">Product name *</label><br>
-                        <input type="text" id="productName" placeholder="e.g. Mango" required>
-                        <br>
-
-                        <label for="productType">Type *</label><br>
-                        <select id="productType" onchange="handleTypeChange()" required>
-                            <option value="">Select a type</option>
-                            <option value="fruits">Fruits</option>
-                            <option value="choco_bar">Choco bar</option>
-                            <option value="cheese">Cheese</option>
-                            <option value="oatmilk">Oat milk</option>
-                            <option value="sugar">Sugar</option>
-                            <option value="cups">Cups</option>
-                            <option value="biscuits">Biscuits</option>
-                            <option value="ice">Ice</option>
-                        </select>
-                        <br>
-
-                        <label for="productSku">SKU *</label><br>
-                        <input type="text" id="productSku" placeholder="e.g. M-001" required>
-                    </fieldset>
-
-                    <!-- PRICING -->
-                    <fieldset>
-                        <legend>Pricing</legend>
-                        <p>PHP</p>
-
-                        <label for="productPrice">Price *</label><br>
-                        <input type="number" id="productPrice" placeholder="0.00" min="0" step="any" required>
-                        <br>
-
-                        <label for="productUnitCost">Unit cost *</label><br>
-                        <input type="number" id="productUnitCost" placeholder="0.00" min="0" step="any" required>
-                        <p>Price is what you charge. Unit cost is used to calculate inventory value.</p>
-                    </fieldset>
-
-                    <!-- OPENING STOCK -->
-                    <fieldset>
-                        <legend>Opening stock</legend>
-                        <p>Downtown store</p>
-
-                        <label for="productQuantity">Quantity on hand *</label><br>
-                        <input type="number" id="productQuantity" placeholder="0" min="0" step="any" required>
-                        <br>
-
-                        <label for="productUnit">Stock unit</label><br>
-                        <!-- filled in automatically from the Type: fruits = g, choco bar = pcs, oat milk = ml ... -->
-                        <input type="text" id="productUnit" value="" placeholder="Pick a type first" readonly>
-                        <br>
-
-                        <label for="productMinStock">Minimum stock</label><br>
-                        <input type="number" id="productMinStock" placeholder="0" min="0" step="any">
-                        <p>You'll see a low-stock alert when quantity falls below the minimum.</p>
-
-                        <label for="productExpiry">Expiry date (optional)</label><br>
-                        <input type="date" id="productExpiry">
-                    </fieldset>
-
-                    <br>
-                    <label>
-                        <input type="checkbox" id="addAnother"> Add another product after saving
-                    </label>
-                    <br><br>
-                    <button type="button" onclick="showView('list')">Cancel</button>
-                    <button type="submit">+ Add product</button>
-                </form>
-
-                <p>Prices in PHP. Opening stock is added only when you save this product.
-                   Future receipts, counts and sales update stock balances.</p>
             </section>
 
         </main>
 
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="backendsystem.js"></script>
         <script src="inventory.js"></script>
     </body>

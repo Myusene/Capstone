@@ -1,23 +1,23 @@
 // ============================================================
 //  Ationg's Fruit Shake - backendsystem.js
-//  Sections: 1) Login  2) Add product page  3) Product (shake menu) page
-//  Every page loads this file, so each page section only runs
-//  when that page's elements exist (see the checks at the bottom).
+//  Shared by every page. Sections:
+//    1) Login / logout        2) Helpers
+//    3) Data layer            4) Add product page
+//    5) Shake menu page       6) Start-up
+//
+//  NOTE: inventory.html's code lives in inventory.js, NOT in this file.
 // ============================================================
 
-const LOGIN_PAGE = "index.html"; // change this to your login page's filename
+const LOGIN_PAGE = "index.html";
+const HOME_PAGE = "landingp.html";
 
 
 // ============================================================
 //  1) LOGIN
 // ============================================================
 
-function TestFunction() {
-    document.getElementById("demo").innerHTML = "Bakla Joseph Rancio";
-}
-
 function attemptLogin(event) {
-  event.preventDefault(); // stop the page from refreshing
+  event.preventDefault(); // stop the form from refreshing the page
 
   const validUsername = "admin";
   const validPassword = "Ationgthebest";
@@ -29,19 +29,20 @@ function attemptLogin(event) {
   if (enteredUsername === validUsername && enteredPassword === validPassword) {
     messageElement.style.color = "green";
     messageElement.textContent = "Login successful! Welcome back.";
-    sessionStorage.setItem("loggedIn", "true"); // lets the other pages know you logged in
-    window.location.href = "landingp.html";
+    sessionStorage.setItem("loggedIn", "true");
+    window.location.href = HOME_PAGE;
   } else {
     messageElement.style.color = "red";
     messageElement.textContent = "Invalid username or password. Please try again.";
   }
 }
 
-// put requireLogin() at the top of any page that needs a login
-function requireLogin() {
-  if (sessionStorage.getItem("loggedIn") !== "true") {
-    window.location.href = LOGIN_PAGE;
-  }
+// Pages call:  if (!(await requireLogin())) return;
+// Returns true when logged in, false (and redirects) when not.
+async function requireLogin() {
+  if (sessionStorage.getItem("loggedIn") === "true") return true;
+  window.location.href = LOGIN_PAGE;
+  return false;
 }
 
 function logout() {
@@ -51,68 +52,229 @@ function logout() {
 
 
 // ============================================================
-//  2) ADD PRODUCT PAGE (addproduct.html)
+//  2) HELPERS
 // ============================================================
 
-// each ingredient type has a fixed unit
-const TYPE_UNITS = {
-  fruits: "g",
-  choco_bar: "pcs",
-  cheese: "g",     // assumed grams, change if needed
-  oatmilk: "ml",
-  sugar: "g",
-  cups: "pcs",     // assumed pieces, change if needed
-  biscuits: "pcs",
-  ice: "ml"
+function esc(text) {
+  const div = document.createElement("div");
+  div.textContent = text == null ? "" : text;
+  return div.innerHTML;
+}
+
+function money(n) {
+  return "PHP " + Number(n || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+
+// ============================================================
+//  3) DATA LAYER
+//  Stored in this browser's localStorage so the site works right
+//  now. To move to Supabase later, only replace the functions in
+//  this section - the pages don't need to change.
+// ============================================================
+
+// label + fixed unit for each ingredient type
+const TYPE_INFO = {
+  fruits:    { label: "Fruits",    unit: "g"   },
+  choco_bar: { label: "Choco bar", unit: "pcs" },
+  cheese:    { label: "Cheese",    unit: "g"   },  // assumed grams, change if needed
+  oatmilk:   { label: "Oat milk",  unit: "ml"  },
+  sugar:     { label: "Sugar",     unit: "g"   },
+  cups:      { label: "Cups",      unit: "pcs" },  // assumed pieces, change if needed
+  biscuits:  { label: "Biscuits",  unit: "pcs" },
+  ice:       { label: "Ice",       unit: "ml"  }
 };
+
+const PRODUCTS_KEY = "afs-products";
+const LOGS_KEY = "afs-logs";
+
+function readList(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; }
+  catch (e) { return []; }
+}
+function writeList(key, list) {
+  localStorage.setItem(key, JSON.stringify(list));
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function addLog(action, itemName, amount) {
+  const logs = readList(LOGS_KEY);
+  logs.unshift({
+    created_at: new Date().toISOString(),
+    action: action,
+    item_name: itemName,
+    amount: Number(amount) || 0
+  });
+  writeList(LOGS_KEY, logs.slice(0, 200));
+}
+
+function findIndexOf(list, table, id) {
+  return list.findIndex(function (p) { return p.item_table === table && p.id === id; });
+}
+
+async function getAllProducts() {
+  return readList(PRODUCTS_KEY);
+}
+
+async function getLogs(limit) {
+  return readList(LOGS_KEY).slice(0, limit || 20);
+}
+
+// in = fine, low = below minimum stock, out = nothing left
+function productStatus(p) {
+  const qty = Number(p.quantity);
+  if (qty <= 0) return "out";
+  if (qty < Number(p.reorder_level || 0)) return "low";
+  return "in";
+}
+
+// products that expire within `days` days (or are already expired)
+function getExpiring(list, days) {
+  const limit = new Date();
+  limit.setHours(0, 0, 0, 0);
+  limit.setDate(limit.getDate() + days);
+  return list.filter(function (p) {
+    return p.expiry_date && new Date(p.expiry_date + "T00:00:00") <= limit;
+  });
+}
+
+async function getSummary() {
+  const active = (await getAllProducts()).filter(function (p) { return !p.archived; });
+  return {
+    totalItems: active.length,
+    totalValue: active.reduce(function (s, p) {
+      return s + Number(p.quantity) * Number(p.unit_cost);
+    }, 0),
+    lowStockCount: active.filter(function (p) { return productStatus(p) === "low"; }).length,
+    expiringCount: getExpiring(active, 3).length
+  };
+}
+
+// product = { item_table, name, sku, price, unit_cost, quantity, unit, reorder_level, expiry_date }
+async function saveProduct(product) {
+  const list = readList(PRODUCTS_KEY);
+  const sku = product.sku.toLowerCase();
+  if (list.some(function (p) { return (p.sku || "").toLowerCase() === sku; })) {
+    return { ok: false, message: "SKU " + product.sku + " is already used by another product." };
+  }
+  list.push(Object.assign({}, product, {
+    id: newId(),
+    archived: false,
+    updated_at: new Date().toISOString()
+  }));
+  writeList(PRODUCTS_KEY, list);
+  addLog("ADDED", product.name, product.quantity);
+  return { ok: true, message: product.name + " was added to the inventory." };
+}
+
+async function restockProduct(table, id, amount) {
+  amount = Number(amount);
+  if (!(amount > 0)) return { ok: false, message: "Enter a number greater than 0." };
+  const list = readList(PRODUCTS_KEY);
+  const i = findIndexOf(list, table, id);
+  if (i < 0) return { ok: false, message: "Product not found." };
+  list[i].quantity = Number(list[i].quantity) + amount;
+  list[i].updated_at = new Date().toISOString();
+  writeList(PRODUCTS_KEY, list);
+  addLog("RESTOCKED", list[i].name, amount);
+  return { ok: true, message: "Restocked " + amount + " " + list[i].unit + " of " + list[i].name + "." };
+}
+
+// action is "USED" or "SPOILED"
+async function useStock(table, id, amount, action) {
+  amount = Number(amount);
+  if (!(amount > 0)) return { ok: false, message: "Enter a number greater than 0." };
+  const list = readList(PRODUCTS_KEY);
+  const i = findIndexOf(list, table, id);
+  if (i < 0) return { ok: false, message: "Product not found." };
+  if (amount > Number(list[i].quantity)) {
+    return { ok: false, message: "Only " + list[i].quantity + " " + list[i].unit + " of " + list[i].name + " in stock." };
+  }
+  list[i].quantity = Number(list[i].quantity) - amount;
+  list[i].updated_at = new Date().toISOString();
+  writeList(PRODUCTS_KEY, list);
+  addLog(action, list[i].name, amount);
+  return { ok: true, message: action + ": " + amount + " " + list[i].unit + " of " + list[i].name + "." };
+}
+
+async function updateProduct(table, id, changes) {
+  const list = readList(PRODUCTS_KEY);
+  const i = findIndexOf(list, table, id);
+  if (i < 0) return { ok: false, message: "Product not found." };
+  Object.assign(list[i], changes, { updated_at: new Date().toISOString() });
+  writeList(PRODUCTS_KEY, list);
+  addLog("UPDATED", list[i].name, 0);
+  return { ok: true, message: list[i].name + " was updated." };
+}
+
+async function deleteProduct(table, id) {
+  const list = readList(PRODUCTS_KEY);
+  const i = findIndexOf(list, table, id);
+  if (i < 0) return { ok: false, message: "Product not found." };
+  const removed = list.splice(i, 1)[0];
+  writeList(PRODUCTS_KEY, list);
+  addLog("DELETED", removed.name, 0);
+  return { ok: true, message: removed.name + " was deleted." };
+}
+
+
+// ============================================================
+//  4) ADD PRODUCT PAGE (add_product.html)
+// ============================================================
 
 function handleTypeChange() {
   const type = document.getElementById("productType").value;
-  document.getElementById("productUnit").value = TYPE_UNITS[type] || "";
+  document.getElementById("productUnit").value = TYPE_INFO[type] ? TYPE_INFO[type].unit : "";
 }
 
-function handleAddProduct(event) {
+async function handleAddProduct(event) {
   event.preventDefault();
 
   const product = {
-    table: document.getElementById("productType").value,
+    item_table: document.getElementById("productType").value,
     name: document.getElementById("productName").value.trim(),
     sku: document.getElementById("productSku").value.trim(),
     price: Number(document.getElementById("productPrice").value),
     unit_cost: Number(document.getElementById("productUnitCost").value),
     quantity: Number(document.getElementById("productQuantity").value),
     unit: document.getElementById("productUnit").value,
-    reorder_level: Number(document.getElementById("productMinStock").value) || 0
+    reorder_level: Number(document.getElementById("productMinStock").value) || 0,
+    expiry_date: document.getElementById("productExpiry").value || null
   };
 
   const msg = document.getElementById("message");
 
-  if (!product.name || !product.table || !product.sku) {
+  if (!product.name || !product.item_table || !product.sku) {
     msg.style.color = "red";
     msg.textContent = "Please fill in the product name, type and SKU.";
     return;
   }
 
-  // TODO: save to Supabase here (insert into the table named product.table)
-  console.log("Product ready to save:", product);
-
-  msg.style.color = "green";
-  msg.textContent = product.name + " is ready to save (database not connected yet).";
+  const result = await saveProduct(product);
+  msg.style.color = result.ok ? "green" : "red";
+  msg.textContent = result.message;
+  if (!result.ok) return;
 
   if (document.getElementById("addAnother").checked) {
     document.getElementById("addProductForm").reset();
     document.getElementById("productUnit").value = "";
   } else {
-    // window.location.href = "inventory.html"; // turn on once saving works
+    window.location.href = "inventory.html";
   }
 }
 
 
 // ============================================================
-//  3) PRODUCT PAGE - SHAKE MENU (product.html)
+//  5) PRODUCT PAGE - SHAKE MENU (product.html)
 // ============================================================
 
-// fruit amounts are in ml of puree; price is in PHP
+// base amounts are the same for every shake
 const BASE = [
   { name: "Fresh milk",     amount: 100, unit: "ml" },
   { name: "Condensed milk", amount: 20,  unit: "ml" },
@@ -131,14 +293,6 @@ const SHAKES = [
 const CUP_SIZE = "16 oz";
 const SERVING = "1 serving";
 
-// ---------- helpers ----------
-function esc(text) {
-  const div = document.createElement("div");
-  div.textContent = text == null ? "" : text;
-  return div.innerHTML;
-}
-
-// "Mango puree · 120 ml"  or  "Mango 60 ml + pineapple 60 ml"
 function fruitSummary(shake) {
   if (shake.fruits.length === 1) {
     return shake.fruits[0].name + " · " + shake.fruits[0].ml + " ml";
@@ -163,7 +317,6 @@ function baseList() {
     .join("");
 }
 
-// ---------- menu ----------
 function renderShakes() {
   const keyword = document.getElementById("shakeSearch").value.toLowerCase();
   const filter = document.getElementById("shakeFilter").value;
@@ -186,7 +339,6 @@ function renderShakes() {
     return;
   }
 
-  // "View recipe" opens inside the card, so the page doesn't jump
   grid.innerHTML = list.map(function (s) {
     return `
     <div>
@@ -222,245 +374,19 @@ function fillBaseNote() {
 
 
 // ============================================================
-//  START-UP: only run a page's code if that page is open
+//  6) START-UP
+//  Each page only runs its own code, and only if logged in.
+//  The login page (index.html) has neither element, so it never
+//  gets redirected - that was what caused the endless refresh.
 // ============================================================
 
-// product.html has the shake grid; other pages don't
-if (document.getElementById("shakeGrid")) {
-  // requireLogin();   // turn on when this page is linked from the login flow
-  renderShakes();
-  fillBaseNote();
-}
-
-//inventory.html
-
-// ============================================================
-//  inventory.js - the inventory list page (inventory.html)
-//  Uses the functions in backendsystem.js (load that file first)
-// ============================================================
-
-let ALL = [];            // every product loaded from Supabase
-let currentTab = "all";  // all | low | out | archived
-
-function showMessage(text, ok) {
-  const el = document.getElementById("message");
-  el.style.color = ok ? "green" : "red";
-  el.textContent = text;
-}
-
-function findProduct(table, id) {
-  return ALL.find(function (p) { return p.item_table === table && p.id === id; });
-}
-
-// ---------- tabs ----------
-
-function setTab(tab) {
-  currentTab = tab;
-  renderInventory();
-}
-
-function handleGlobalSearch() {
-  document.getElementById("searchBox").value = document.getElementById("globalSearch").value;
-  renderInventory();
-}
-
-// ---------- filtering & sorting ----------
-
-function visibleProducts() {
-  const keyword = document.getElementById("searchBox").value.toLowerCase();
-  const type = document.getElementById("typeFilter").value;
-  const status = document.getElementById("statusFilter").value;
-  const sort = document.getElementById("sortBy").value;
-
-  let list = ALL.filter(function (p) {
-    const st = productStatus(p);
-    if (currentTab === "archived") { if (!p.archived) return false; }
-    else {
-      if (p.archived) return false;
-      if (currentTab === "low" && st !== "low") return false;
-      if (currentTab === "out" && st !== "out") return false;
-    }
-    if (type && p.item_table !== type) return false;
-    if (status && st !== status) return false;
-
-    const text = (p.name + " " + (p.sku || "") + " " + TYPE_INFO[p.item_table].label).toLowerCase();
-    return text.includes(keyword);
-  });
-
-  list.sort(function (a, b) {
-    if (sort === "name") return a.name.localeCompare(b.name);
-    if (sort === "qtyLow") return Number(a.quantity) - Number(b.quantity);
-    if (sort === "qtyHigh") return Number(b.quantity) - Number(a.quantity);
-    return new Date(b.updated_at) - new Date(a.updated_at); // recently updated
-  });
-
-  return list;
-}
-
-// ---------- rendering ----------
-
-const STATUS_TEXT = { in: "In stock", low: "Low stock", out: "Out of stock" };
-
-function renderInventory() {
-  const list = visibleProducts();
-  const body = document.getElementById("inventoryBody");
-
-  if (list.length === 0) {
-    body.innerHTML = '<tr><td colspan="7">No products found.</td></tr>';
-  } else {
-    body.innerHTML = list.map(function (p) {
-      const t = "'" + p.item_table + "','" + p.id + "'";
-      const archiveBtn = p.archived
-        ? '<button onclick="handleArchive(' + t + ', false)">Unarchive</button>'
-        : '<button onclick="handleArchive(' + t + ', true)">Archive</button>';
-      return `
-      <tr>
-        <td>${esc(p.name)}<br><small>${esc(p.sku || "no SKU")}</small></td>
-        <td>${esc(TYPE_INFO[p.item_table].label)}</td>
-        <td>${Number(p.quantity)} ${esc(p.unit)}</td>
-        <td>${money(p.price)}</td>
-        <td>${money(p.unit_cost)}</td>
-        <td>${STATUS_TEXT[productStatus(p)]}</td>
-        <td>
-          <button onclick="handleRestock(${t})">Restock</button>
-          <button onclick="handleUse(${t})">Use</button>
-          <button onclick="handleSpoiled(${t})">Spoiled</button>
-          <button onclick="handleEdit(${t})">Edit</button>
-          ${archiveBtn}
-          <button onclick="handleDelete(${t})">Delete</button>
-        </td>
-      </tr>`;
-    }).join("");
+(async function startUp() {
+  if (document.getElementById("shakeGrid")) {        // product.html
+    if (!(await requireLogin())) return;
+    renderShakes();
+    fillBaseNote();
   }
-}
-
-function renderStats() {
-  const active = ALL.filter(function (p) { return !p.archived; });
-  const low = active.filter(function (p) { return productStatus(p) === "low"; });
-  const out = active.filter(function (p) { return productStatus(p) === "out"; });
-  const expiring = getExpiring(active, 3);
-  const value = active.reduce(function (s, p) { return s + Number(p.quantity) * Number(p.unit_cost); }, 0);
-
-  document.getElementById("statActive").textContent = active.length;
-  document.getElementById("statActiveNote").textContent = (low.length + out.length) + " products need attention today";
-  document.getElementById("statUnits").textContent = expiring.length;
-  document.getElementById("statValue").textContent = money(value);
-  document.getElementById("statLow").textContent = low.length;
-  document.getElementById("statLowNote").textContent = low.length + " need attention today";
-
-  document.getElementById("countAll").textContent = active.length;
-  document.getElementById("navProductCount").textContent = active.length;
-  document.getElementById("countLow").textContent = low.length;
-  document.getElementById("countOut").textContent = out.length;
-
-  document.getElementById("lowStockList").textContent =
-    low.length ? low.map(function (p) { return p.name + " (" + p.quantity + " " + p.unit + ")"; }).join(", ") : "None";
-  document.getElementById("expiringList").textContent =
-    expiring.length ? expiring.map(function (p) { return p.name + " (" + p.expiry_date + ")"; }).join(", ") : "None";
-}
-
-async function renderLogs() {
-  const list = document.getElementById("logList");
-  try {
-    const logs = await getLogs(20);
-    list.innerHTML = logs.length
-      ? logs.map(function (l) {
-          return "<li>" + esc(new Date(l.created_at).toLocaleString()) + " - " + esc(l.action) + ": " +
-                 esc(l.item_name) + " (" + Number(l.amount) + ")</li>";
-        }).join("")
-      : "<li>No activity yet.</li>";
-  } catch (e) {
-    list.innerHTML = "<li>Could not load activity.</li>";
+  if (document.getElementById("addProductForm")) {   // add_product.html
+    await requireLogin();
   }
-}
-
-async function refreshAll() {
-  try {
-    ALL = await getAllProducts();
-    renderStats();
-    renderInventory();
-    renderLogs();
-  } catch (e) {
-    showMessage(e.message, false);
-  }
-}
-
-// ---------- row buttons ----------
-
-async function runAction(promise) {
-  const result = await promise;
-  showMessage(result.message, result.ok);
-  if (result.ok) refreshAll();
-}
-
-function handleRestock(table, id) {
-  const p = findProduct(table, id);
-  const amount = prompt("Restock how many " + p.unit + " of " + p.name + "?");
-  if (amount === null) return;
-  runAction(restockProduct(table, id, amount));
-}
-
-function handleUse(table, id) {
-  const p = findProduct(table, id);
-  const amount = prompt("Use how many " + p.unit + " of " + p.name + "? (in stock: " + p.quantity + ")");
-  if (amount === null) return;
-  runAction(useStock(table, id, amount, "USED"));
-}
-
-function handleSpoiled(table, id) {
-  const p = findProduct(table, id);
-  const amount = prompt("How many " + p.unit + " of " + p.name + " spoiled or were wasted?");
-  if (amount === null) return;
-  runAction(useStock(table, id, amount, "SPOILED"));
-}
-
-function handleEdit(table, id) {
-  const p = findProduct(table, id);
-
-  const name = prompt("Product name:", p.name);            if (name === null) return;
-  const sku = prompt("SKU:", p.sku || "");                  if (sku === null) return;
-  const price = prompt("Price (PHP):", p.price);            if (price === null) return;
-  const unitCost = prompt("Unit cost (PHP):", p.unit_cost); if (unitCost === null) return;
-  const minStock = prompt("Minimum stock:", p.reorder_level); if (minStock === null) return;
-  const expiry = prompt("Expiry date (YYYY-MM-DD, blank for none):", p.expiry_date || ""); if (expiry === null) return;
-
-  if (!name.trim()) { showMessage("Product name is required.", false); return; }
-
-  runAction(updateProduct(table, id, {
-    name: name.trim(),
-    sku: sku.trim() || null,
-    price: Number(price) || 0,
-    unit_cost: Number(unitCost) || 0,
-    reorder_level: Number(minStock) || 0,
-    expiry_date: expiry.trim() || null
-  }));
-}
-
-function handleArchive(table, id, archive) {
-  runAction(updateProduct(table, id, { archived: archive }));
-}
-
-function handleDelete(table, id) {
-  const p = findProduct(table, id);
-  if (!confirm("Delete " + p.name + "? This cannot be undone. (Archive keeps it instead.)")) return;
-  runAction(deleteProduct(table, id));
-}
-
-// ---------- backup ----------
-
-function handleExport() {
-  const blob = new Blob([JSON.stringify(ALL, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "ationg-inventory-" + new Date().toISOString().slice(0, 10) + ".json";
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
-// ---------- start ----------
-
-(async function start() {
-  if (!(await requireLogin())) return;
-  setTab("all");
-  refreshAll();
 })();

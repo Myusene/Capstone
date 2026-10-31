@@ -1,47 +1,78 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Ationg's Fruit Shake - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0d0d0d">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+        <p id="today"></p>
+        <h1>A clear view of your store.</h1>
+        <p>Here's what's moving at Ationg's Fruit Shake today.</p>
+        <button class="primary wide" onclick="location.href='receipt.html'">+ Scan receipt</button>
 
-<!--
-    LEGEND:
-    HTML FILE: Where the Main Information is + The Structure of the Website
-    JAVASCRIPT WHERE THE BACKEND SYSTEM WORKS/DATABASE
-    CSS: DESIGN
--->
-    <head>
-        <title> Ationg's Fruit Shake </title>
-    </head>
-    <body>
-        <h1>Ationg's Fruit Shake Inventory System</h1>
-
-        <div>
-            <nav> <a href="landingp.html">Overview</a> </nav>
-            <nav> <a href="inventory.html">Inventory</a> </nav>
-            <nav> <a href="product.html">Products</a> </nav>
-           
-            <button onclick="logout()">Log Out</button>
+        <div class="stats">
+            <div class="card"><p>Active products</p><h2 id="totalItems">0</h2><small>In your inventory</small></div>
+            <div class="card"><p>Low-stock products</p><h2 id="lowStockCount">0</h2><small>Below minimum stock</small></div>
+            <div class="card"><p>Expiring soon</p><h2 id="expiringCount">0</h2><small>Within 3 days or expired</small></div>
+            <div class="card"><p>Inventory value</p><h2 id="totalValue">PHP 0.00</h2><small>At cost</small></div>
         </div>
-        <br>
 
-        <h2>Overview</h2>
-        <p>Total items: <span id="totalItems">0</span></p>
-        <p>Total inventory value: <span id="totalValue">PHP 0.00</span></p>
-        <p>Low-stock items: <span id="lowStockCount">0</span></p>
-        <p>Expiring soon / expired: <span id="expiringCount">0</span></p>
+        <section class="card">
+            <h3>Sales performance</h3>
+            <p class="muted" id="range"></p>
+            <h2 id="weekTotal">PHP 0.00</h2><small id="weekChange"></small>
+            <div class="chart" id="chart"></div>
+            <button class="wide" onclick="location.href='sales.html'">View sales</button>
+        </section>
 
-        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="backendsystem.js"></script>
-        <script>
-            (async function () {
-                if (!(await requireLogin())) return;
-                try {
-                    const s = await getSummary();
-                    document.getElementById("totalItems").textContent = s.totalItems;
-                    document.getElementById("totalValue").textContent = money(s.totalValue);
-                    document.getElementById("lowStockCount").textContent = s.lowStockCount;
-                    document.getElementById("expiringCount").textContent = s.expiringCount;
-                } catch (e) {
-                    document.body.insertAdjacentHTML("beforeend", "<p style='color:red'>" + esc(e.message) + "</p>");
-                }
-            })();
-        </script>
-    </body>
+        <section class="card">
+            <h3>A little attention goes a long way</h3>
+            <p class="muted">Prioritize these products before the next busy hour.</p>
+            <div id="attention"></div>
+            <button class="wide" onclick="location.href='inventory.html'">View inventory</button>
+        </section>
+    </main>
+
+    <script src="backendsystem.js"></script>
+    <script src="sales-data.js"></script>
+    <script src="shell.js"></script>
+    <script>
+    (async function () {
+        if (!(await requireLogin())) return;
+        document.getElementById("today").textContent =
+            new Date().toLocaleDateString("en-PH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+        try {
+            const s = await getSummary();
+            document.getElementById("totalItems").textContent = s.totalItems;
+            document.getElementById("totalValue").textContent = money(s.totalValue);
+            document.getElementById("lowStockCount").textContent = s.lowStockCount;
+            document.getElementById("expiringCount").textContent = s.expiringCount;
+
+            const need = (await getAllProducts()).filter(function (p) {
+                return !p.archived && productStatus(p) !== "in";
+            }).slice(0, 5);
+            document.getElementById("attention").innerHTML = need.length ? need.map(function (p) {
+                const st = productStatus(p);
+                return '<div class="row"><div><b>' + esc(p.name) + '</b><small>' + esc(p.sku || "no SKU") + '</small></div>' +
+                    '<span class="mono">' + Number(p.quantity) + ' ' + esc(p.unit) + '</span>' +
+                    '<span class="pill ' + st + '">' + (st === "out" ? "Out of stock" : "Low stock") + '</span>' +
+                    '<button onclick="location.href=\'inventory.html\'">Restock</button></div>';
+            }).join("") : '<p class="muted">Nothing needs attention. Every product is above its minimum.</p>';
+        } catch (e) {
+            document.getElementById("attention").innerHTML = "<p style='color:#ff4d4d'>" + esc(e.message) + "</p>";
+        }
+        const cur = dailyTotals(7, 0), prev = dailyTotals(7, 7);
+        document.getElementById("weekTotal").textContent = money(sum(cur));
+        document.getElementById("weekChange").textContent = pctChange(sum(cur), sum(prev)) + " vs the previous 7 days";
+        document.getElementById("range").textContent =
+            cur[0].date.toLocaleDateString("en-PH", { day: "numeric", month: "short" }) + " - " +
+            cur[6].date.toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric" });
+        drawChart(document.getElementById("chart"), cur, prev);
+    })();
+    </script>
+</body>
 </html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Ationg's Fruit Shake - Sales</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0d0d0d">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+        <p id="today"></p>
+        <h1>Sales, at a glance.</h1>
+        <p>Follow today's trade and keep every sale in one place.</p>
+        <button class="wide" onclick="exportSales()">Export sales</button>
+
+        <div class="stats">
+            <div class="card"><p>Today's sales</p><h2 id="sToday">PHP 0.00</h2><small id="sTodayNote"></small></div>
+            <div class="card"><p>Transactions</p><h2 id="sCount">0</h2><small>Sales recorded today</small></div>
+            <div class="card"><p>Units sold</p><h2 id="sUnits">0</h2><small>Recorded today</small></div>
+            <div class="card"><p>Average sale</p><h2 id="sAvg">PHP 0.00</h2><small>Sales total / transactions</small></div>
+        </div>
+
+        <section class="card">
+            <h3>Sales trend</h3>
+            <p class="muted" id="range"></p>
+            <select id="period" onchange="render()">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+            </select>
+            <h2 id="periodTotal">PHP 0.00</h2><small id="periodChange"></small>
+            <div class="chart" id="chart"></div>
+        </section>
+
+        <section class="card">
+            <h3>Record a sale</h3>
+            <form onsubmit="handleSale(event)">
+                <label for="saleAmount">Sale total (PHP) *</label>
+                <input type="number" id="saleAmount" min="0" step="any" required>
+                <label for="saleUnits">Shakes sold</label>
+                <input type="number" id="saleUnits" min="1" step="1" value="1">
+                <p id="saleMsg" class="muted"></p>
+                <button type="submit" class="primary wide">Save sale</button>
+            </form>
+        </section>
+    </main>
+
+    <script src="backendsystem.js"></script>
+    <script src="sales-data.js"></script>
+    <script src="shell.js"></script>
+    <script>
+    function render() {
+        const n = Number(document.getElementById("period").value);
+        const cur = dailyTotals(n, 0), prev = dailyTotals(n, n);
+        const today = getSales().filter(function (s) { return dayKey(new Date(s.at)) === dayKey(new Date()); });
+        const t = today.reduce(function (a, s) { return a + s.amount; }, 0);
+        const y = dailyTotals(2, 0)[0].total;
+        document.getElementById("sToday").textContent = money(t);
+        document.getElementById("sTodayNote").textContent = pctChange(t, y) + " vs yesterday";
+        document.getElementById("sCount").textContent = today.length;
+        document.getElementById("sUnits").textContent = today.reduce(function (a, s) { return a + s.units; }, 0);
+        document.getElementById("sAvg").textContent = money(today.length ? t / today.length : 0);
+        document.getElementById("periodTotal").textContent = money(sum(cur));
+        document.getElementById("periodChange").textContent = pctChange(sum(cur), sum(prev)) + " vs the previous " + n + " days";
+        document.getElementById("range").textContent =
+            cur[0].date.toLocaleDateString("en-PH", { day: "numeric", month: "short" }) + " - " +
+            cur[n - 1].date.toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric" }) + " \u00b7 daily sales in PHP";
+        drawChart(document.getElementById("chart"), cur, prev);
+    }
+    function handleSale(e) {
+        e.preventDefault();
+        const a = Number(document.getElementById("saleAmount").value);
+        if (!(a > 0)) { return; }
+        addSale(a, document.getElementById("saleUnits").value);
+        document.getElementById("saleAmount").value = "";
+        document.getElementById("saleMsg").textContent = "Sale of " + money(a) + " saved.";
+        render();
+    }
+    function exportSales() {
+        const rows = ["date,amount,units"].concat(getSales().map(function (s) { return s.at + "," + s.amount + "," + s.units; }));
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv" }));
+        link.download = "ationg-sales-" + dayKey(new Date()) + ".csv";
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+    (async function () {
+        if (!(await requireLogin())) return;
+        document.getElementById("today").textContent =
+            "Sales / " + new Date().toLocaleDateString("en-PH", { day: "numeric", month: "long", year: "numeric" });
+        render();
+    })();
+    </script>
+</body>
+</html>

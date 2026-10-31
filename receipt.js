@@ -48,6 +48,7 @@ async function scan(src) {
     $("status").textContent = "The scanner could not load. Check your internet connection and reload.";
     return;
   }
+  $("readBtn").disabled = true;   // no double-clicking while it reads
   $("status").textContent = "Preparing image...";
   $("bar").style.display = "inline";
   $("bar").value = 0;
@@ -77,20 +78,42 @@ async function scan(src) {
     $("status").textContent = "Could not read the receipt: " + e.message;
   } finally {
     $("bar").style.display = "none";
+    $("readBtn").disabled = false;
   }
+}
+
+// The photo waits here until you press "Read receipt".
+let pendingSource = null;
+
+function photoReady(source, previewUrl) {
+  pendingSource = source;
+  $("preview").src = previewUrl;
+  $("preview").style.display = "block";
+  $("readBtn").disabled = false;
+  $("reviewBox").style.display = "none";
+  $("status").textContent = 'Photo ready. Press "Read receipt" to scan it.';
 }
 
 $("receiptFile").addEventListener("change", function (e) {
   const file = e.target.files[0];
   if (!file) return;
   const img = new Image();
-  img.onload = function () {
-    $("preview").src = img.src;
-    $("preview").style.display = "block";
-    scan(img);
+  img.onload = function () { photoReady(img, img.src); };
+  img.onerror = function () {
+    pendingSource = null;
+    $("readBtn").disabled = true;
+    $("status").textContent = "That file could not be opened as a picture. Try a JPG or PNG.";
   };
   img.src = URL.createObjectURL(file);
   e.target.value = "";
+});
+
+$("readBtn").addEventListener("click", function () {
+  if (!pendingSource) {
+    $("status").textContent = "Choose or take a photo first.";
+    return;
+  }
+  scan(pendingSource);
 });
 
 // live camera (needs https:// or localhost)
@@ -120,9 +143,7 @@ $("snapBtn").addEventListener("click", function () {
   stream.getTracks().forEach(function (t) { t.stop(); });
   v.style.display = "none";
   $("snapBtn").style.display = "none";
-  $("preview").src = c.toDataURL("image/jpeg", 0.9);
-  $("preview").style.display = "block";
-  scan(c);
+  photoReady(c, c.toDataURL("image/jpeg", 0.9));
 });
 
 
@@ -264,8 +285,6 @@ $("addRowBtn").addEventListener("click", function () {
 
 // ---------- 4) SAVE TO INVENTORY ----------
 
-function round4(n) { return Math.round(n * 10000) / 10000; }
-
 // make a SKU like FRU-001 that is not used yet
 function makeSku(type) {
   const prefix = type.replace(/[^a-z]/g, "").slice(0, 3).toUpperCase();
@@ -297,19 +316,12 @@ $("saveBtn").addEventListener("click", async function () {
 
     if (!name || !(qty > 0)) { problems.push(label + ": needs a name and an amount above 0"); continue; }
 
-    const unitCost = round4(total / qty);   // cost per g / ml / piece
     const existing = ALL.find(function (p) { return p.id === matchId; });
 
     if (existing) {
-      const oldQty = Number(existing.quantity);
-      const oldCost = Number(existing.unit_cost);
-      const r = await restockProduct(existing.item_table, existing.id, qty);
+      // the line total is added to this product's cost as one entry (not multiplied by the amount)
+      const r = await restockProduct(existing.item_table, existing.id, qty, total);
       if (!r.ok) { problems.push(label + ": " + r.message); continue; }
-      if (total > 0) {
-        // average the old and new cost so inventory value stays fair
-        const avg = round4((oldQty * oldCost + qty * unitCost) / (oldQty + qty));
-        await updateProduct(existing.item_table, existing.id, { unit_cost: avg });
-      }
       restocked++;
     } else {
       if (!type) { problems.push(label + ": choose a type for the new product"); continue; }
@@ -318,7 +330,7 @@ $("saveBtn").addEventListener("click", async function () {
         name: name,
         sku: makeSku(type),
         price: 0,                       // ingredients are not sold directly
-        unit_cost: unitCost,
+        total_cost: total,              // the whole line total, not per g / ml / pcs
         quantity: qty,
         unit: TYPE_INFO[type].unit,
         reorder_level: 0,

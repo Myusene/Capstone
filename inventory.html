@@ -1,351 +1,263 @@
-// ============================================================
-//  inventory.js - the inventory list page (inventory.html)
-//  Uses the functions in backendsystem.js (load that file first)
-// ============================================================
+<!DOCTYPE html>
+<html>
+<!--
+    LEGEND:
+    HTML FILE: Structure of the page
+    backendsystem.js: database + inventory functions
+    inventory.js: connects the buttons on this page to the backend
+-->
+    <head>
+        <title> Ationg's Fruit Shake - Inventory </title>
+    </head>
+    <body>
 
-let ALL = [];            // every product loaded from storage
-let currentTab = "all";  // all | low | out | archived
+        <!-- ============ SIDEBAR ============ -->
+        <aside id="sidebar">
+            <h2>AFS: Inventory</h2>
+            <p><b>Ationg's</b><br>Fruit Shake</p>
 
-function showMessage(text, ok) {
-  const el = document.getElementById("message");
-  el.style.color = ok ? "green" : "red";
-  el.textContent = text;
-}
+            <p>WORKSPACE</p>
+            <nav>
+                <a href="landingp.html">Dashboard</a> <br>
+                <a href="inventory.html"><b>Inventory</b> <span id="navProductCount">0</span></a> <br>
+                <a href="product.html">Products</a> <br>
+                <a href="receipt.html">Receipt intake</a> <br>
+                <!-- add this link when the page exists:
+                <a href="sales.html">Sales</a>
+                -->
+            </nav>
 
-function findProduct(table, id) {
-  return ALL.find(function (p) { return p.item_table === table && p.id === id; });
-}
+            <div>
+                <p><b>You're in control</b></p>
+                <p>Review every receipt and photo before updating stock.</p>
+            </div>
 
-// ---------- tabs ----------
+            <div>
+                <p><b id="userName">Judd Ationg</b><br><span id="userRole">Store Owner</span></p>
+                <button onclick="logout()">Log Out</button>
+            </div>
+        </aside>
 
-function setTab(tab) {
-  currentTab = tab;
-  renderInventory();
-}
+        <main>
 
-function handleGlobalSearch() {
-  document.getElementById("searchBox").value = document.getElementById("globalSearch").value;
-  renderInventory();
-}
+            <!-- ============ TOP BAR ============ -->
+            <header>
+                <p id="breadcrumb">Workspace / Inventory</p>
+                <input type="text" id="globalSearch" placeholder="Search anything" oninput="handleGlobalSearch()">
+                <span id="saveStatus">All changes saved</span>
+            </header>
 
-// ---------- filtering & sorting ----------
+            <p id="message"></p>
 
-function visibleProducts() {
-  const keyword = document.getElementById("searchBox").value.toLowerCase();
-  const type = document.getElementById("typeFilter").value;
-  const status = document.getElementById("statusFilter").value;
-  const sort = document.getElementById("sortBy").value;
+            <!-- =====================================================
+                 VIEW 1: INVENTORY LIST
+                 ===================================================== -->
+            <section id="viewList">
 
-  let list = ALL.filter(function (p) {
-    const st = productStatus(p);
-    if (currentTab === "archived") { if (!p.archived) return false; }
-    else {
-      if (p.archived) return false;
-      if (currentTab === "low" && st !== "low") return false;
-      if (currentTab === "out" && st !== "out") return false;
-    }
-    if (type && p.item_table !== type) return false;
-    if (status && st !== status) return false;
+                <p>YOUR STOCK, ORGANIZED</p>
+                <h1>Inventory</h1>
+                <p>Manage product records, quantities and pricing in one place.</p>
+                <button onclick="window.location.href='add_product.html'">+ Add product</button>
 
-    const label = TYPE_INFO[p.item_table] ? TYPE_INFO[p.item_table].label : p.item_table;
-    const text = (p.name + " " + (p.sku || "") + " " + label).toLowerCase();
-    return text.includes(keyword);
-  });
+                <!-- STAT CARDS -->
+                <div id="statCards">
+                    <div>
+                        <p>Active products</p>
+                        <h2 id="statActive">0</h2>
+                        <p id="statActiveNote">0 products need attention today</p>
+                    </div>
+                    <div>
+                        <p>Expiring soon</p>
+                        <h2 id="statUnits">0</h2>
+                        <p>Within 3 days or already expired</p>
+                    </div>
+                    <div>
+                        <p>Inventory value - at cost</p>
+                        <h2 id="statValue">PHP 0.00</h2>
+                        <p>Adds up the cost of every entry</p>
+                    </div>
+                    <div>
+                        <p>Below minimum stock</p>
+                        <h2 id="statLow">0</h2>
+                        <p id="statLowNote">0 need attention today</p>
+                    </div>
+                </div>
 
-  list.sort(function (a, b) {
-    if (sort === "name") return a.name.localeCompare(b.name);
-    if (sort === "qtyLow") return Number(a.quantity) - Number(b.quantity);
-    if (sort === "qtyHigh") return Number(b.quantity) - Number(a.quantity);
-    return new Date(b.updated_at) - new Date(a.updated_at); // recently updated
-  });
+                <br>
 
-  return list;
-}
+                <!-- TABS -->
+                <div id="tabs">
+                    <button id="tabAll"     onclick="setTab('all')">All products <span id="countAll">0</span></button>
+                    <button id="tabLow"     onclick="setTab('low')">Low stock <span id="countLow">0</span></button>
+                    <button id="tabOut"     onclick="setTab('out')">Out of stock <span id="countOut">0</span></button>
+                    <button id="tabArchive" onclick="setTab('archived')">Archived</button>
+                </div>
 
-// ---------- rendering ----------
+                <!-- FILTERS -->
+                <div id="filters">
+                    <input type="text" id="searchBox" placeholder="Search products or SKU..." oninput="renderInventory()">
 
-const STATUS_TEXT = { in: "In stock", low: "Low stock", out: "Out of stock" };
+                    <select id="typeFilter" onchange="renderInventory()">
+                        <option value="">All types</option>
+                        <option value="fruits">Fruits</option>
+                        <option value="choco_bar">Choco bar</option>
+                        <option value="cheese">Cheese</option>
+                        <option value="oatmilk">Oat milk</option>
+                        <option value="sugar">Sugar</option>
+                        <option value="cups">Cups</option>
+                        <option value="biscuits">Biscuits</option>
+                        <option value="ice">Ice</option>
+                    </select>
 
-function renderInventory() {
-  const list = visibleProducts();
-  const body = document.getElementById("inventoryBody");
+                    <select id="statusFilter" onchange="renderInventory()">
+                        <option value="">Stock status</option>
+                        <option value="in">In stock</option>
+                        <option value="low">Low stock</option>
+                        <option value="out">Out of stock</option>
+                    </select>
 
-  if (list.length === 0) {
-    body.innerHTML = '<tr><td colspan="7">No products found.</td></tr>';
-    return;
-  }
+                    <select id="sortBy" onchange="renderInventory()">
+                        <option value="recent">Recently updated</option>
+                        <option value="name">Name (A-Z)</option>
+                        <option value="qtyLow">Quantity (low to high)</option>
+                        <option value="qtyHigh">Quantity (high to low)</option>
+                    </select>
+                </div>
 
-  body.innerHTML = list.map(function (p) {
-    const t = "'" + p.item_table + "','" + p.id + "'";
-    const label = TYPE_INFO[p.item_table] ? TYPE_INFO[p.item_table].label : p.item_table;
-    const archiveBtn = p.archived
-      ? '<button onclick="handleArchive(' + t + ', false)">Unarchive</button>'
-      : '<button onclick="handleArchive(' + t + ', true)">Archive</button>';
-    return `
-    <tr>
-      <td>${esc(p.name)}<br><small>${esc(p.sku || "no SKU")}</small></td>
-      <td>${esc(label)}</td>
-      <td>${Number(p.quantity)} ${esc(p.unit)}</td>
-      <td>${money(p.price)}</td>
-      <td>${money(p.total_cost)}</td>
-      <td>${STATUS_TEXT[productStatus(p)]}</td>
-      <td>
-        <button onclick="handleRestock(${t})">Restock</button>
-        <button onclick="handleUse(${t})">Use</button>
-        <button onclick="handleSpoiled(${t})">Spoiled</button>
-        <button onclick="handleEdit(${t})">Edit</button>
-        ${archiveBtn}
-        <button onclick="handleDelete(${t})">Delete</button>
-      </td>
-    </tr>`;
-  }).join("");
-}
+                <!-- PRODUCT TABLE -->
+                <table border="1" cellpadding="4">
+                    <thead>
+                        <tr>
+                            <th>Product name</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Cost</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryBody"></tbody>
+                </table>
 
-function renderStats() {
-  const active = ALL.filter(function (p) { return !p.archived; });
-  const low = active.filter(function (p) { return productStatus(p) === "low"; });
-  const out = active.filter(function (p) { return productStatus(p) === "out"; });
-  const expiring = getExpiring(active, 3);
-  const value = active.reduce(function (s, p) { return s + Number(p.total_cost); }, 0);   // each entry's cost, not multiplied by quantity
+                <!-- Alerts + activity (extra, from the earlier version) -->
+                <h2>Alerts</h2>
+                <p><b>Low stock:</b> <span id="lowStockList"></span></p>
+                <p><b>Expiring in 3 days (or expired):</b> <span id="expiringList"></span></p>
 
-  document.getElementById("statActive").textContent = active.length;
-  document.getElementById("statActiveNote").textContent = (low.length + out.length) + " products need attention today";
-  document.getElementById("statUnits").textContent = expiring.length;
-  document.getElementById("statValue").textContent = money(value);
-  document.getElementById("statLow").textContent = low.length;
-  document.getElementById("statLowNote").textContent = low.length + " need attention today";
+                <h2>Recent Activity</h2>
+                <ul id="logList"></ul>
 
-  document.getElementById("countAll").textContent = active.length;
-  document.getElementById("navProductCount").textContent = active.length;
-  document.getElementById("countLow").textContent = low.length;
-  document.getElementById("countOut").textContent = out.length;
+                <h2>Backup</h2>
+                <button onclick="handleExport()">Export Data</button>
+            </section>
 
-  document.getElementById("lowStockList").textContent =
-    low.length ? low.map(function (p) { return p.name + " (" + p.quantity + " " + p.unit + ")"; }).join(", ") : "None";
-  document.getElementById("expiringList").textContent =
-    expiring.length ? expiring.map(function (p) { return p.name + " (" + p.expiry_date + ")"; }).join(", ") : "None";
-}
+        </main>
 
-async function renderLogs() {
-  const list = document.getElementById("logList");
-  try {
-    const logs = await getLogs(20);
-    list.innerHTML = logs.length
-      ? logs.map(function (l) {
-          return "<li>" + esc(new Date(l.created_at).toLocaleString()) + " - " + esc(l.action) + ": " +
-                 esc(l.item_name) + " (" + Number(l.amount) + ")</li>";
-        }).join("")
-      : "<li>No activity yet.</li>";
-  } catch (e) {
-    list.innerHTML = "<li>Could not load activity.</li>";
-  }
-}
+        <!-- ============ RESTOCK WINDOW ============ -->
+        <dialog id="restockDialog" style="padding: 16px; min-width: 300px;">
+            <form onsubmit="handleRestockSubmit(event)">
+                <h2 id="restockTitle">Restock</h2>
+                <p id="restockCurrent"></p>
 
-async function refreshAll() {
-  try {
-    ALL = await getAllProducts();
-    renderStats();
-    renderInventory();
-    renderLogs();
-  } catch (e) {
-    showMessage(e.message, false);
-  }
-}
+                <input type="hidden" id="restockTable">
+                <input type="hidden" id="restockId">
 
-// ---------- row buttons ----------
+                <label for="restockAmount">Amount received *</label><br>
+                <input type="number" id="restockAmount" min="0" step="any" placeholder="0" required>
+                <span id="restockUnit"></span>
+                <br><br>
 
-async function runAction(promise) {
-  const result = await promise;
-  showMessage(result.message, result.ok);
-  if (result.ok) refreshAll();
-}
+                <label for="restockCost">Cost of this delivery (PHP)</label><br>
+                PHP <input type="number" id="restockCost" min="0" step="any" placeholder="0.00">
+                <p><small>The whole amount you paid for this delivery. It is added to the product's cost, not multiplied by the amount.</small></p>
 
-// Restock opens a window (the <dialog id="restockDialog"> in inventory.html)
-function handleRestock(table, id) {
-  const p = findProduct(table, id);
-  document.getElementById("restockTable").value = table;
-  document.getElementById("restockId").value = id;
-  document.getElementById("restockTitle").textContent = "Restock " + p.name;
-  document.getElementById("restockCurrent").textContent =
-    "In stock now: " + Number(p.quantity) + " " + p.unit + " | Cost so far: " + money(p.total_cost);
-  document.getElementById("restockUnit").textContent = p.unit;
-  document.getElementById("restockAmount").value = "";
-  document.getElementById("restockCost").value = "";
-  document.getElementById("restockError").textContent = "";
-  document.getElementById("restockDialog").showModal();
-  document.getElementById("restockAmount").focus();
-}
+                <p id="restockError" style="color:red"></p>
 
-function closeRestock() {
-  document.getElementById("restockDialog").close();
-}
+                <button type="button" onclick="closeRestock()">Cancel</button>
+                <button type="submit">Restock</button>
+            </form>
+        </dialog>
 
-async function handleRestockSubmit(event) {
-  event.preventDefault();
-  const error = document.getElementById("restockError");
-  const table = document.getElementById("restockTable").value;
-  const id = document.getElementById("restockId").value;
-  const amount = Number(document.getElementById("restockAmount").value);
-  const cost = Number(document.getElementById("restockCost").value) || 0;
+        <!-- ============ USE / SPOILED WINDOW ============ -->
+        <dialog id="stockOutDialog" style="padding: 16px; min-width: 300px;">
+            <form onsubmit="handleStockOutSubmit(event)">
+                <h2 id="stockOutTitle">Use stock</h2>
+                <p id="stockOutCurrent"></p>
 
-  if (!(amount > 0)) { error.textContent = "Enter an amount greater than 0."; return; }
-  if (cost < 0) { error.textContent = "Cost cannot be negative."; return; }
+                <input type="hidden" id="stockOutTable">
+                <input type="hidden" id="stockOutId">
+                <input type="hidden" id="stockOutReason">
 
-  const result = await restockProduct(table, id, amount, cost);
-  if (!result.ok) { error.textContent = result.message; return; }
+                <label for="stockOutAmount" id="stockOutLabel">Amount used *</label><br>
+                <input type="number" id="stockOutAmount" min="0" step="any" placeholder="0" required>
+                <span id="stockOutUnit"></span>
 
-  closeRestock();
-  showMessage(result.message, true);
-  refreshAll();
-}
+                <p id="stockOutError" style="color:red"></p>
 
-function closeDialog(id) {
-  document.getElementById(id).close();
-}
+                <button type="button" onclick="closeDialog('stockOutDialog')">Cancel</button>
+                <button type="submit" id="stockOutSubmit">Use stock</button>
+            </form>
+        </dialog>
 
-// ---------- Use / Spoiled window (<dialog id="stockOutDialog">) ----------
+        <!-- ============ EDIT WINDOW ============ -->
+        <dialog id="editDialog" style="padding: 16px; min-width: 320px;">
+            <form onsubmit="handleEditSubmit(event)">
+                <h2 id="editTitle">Edit product</h2>
 
-function openStockOut(table, id, reason) {
-  const p = findProduct(table, id);
-  const spoiled = reason === "SPOILED";
-  document.getElementById("stockOutTable").value = table;
-  document.getElementById("stockOutId").value = id;
-  document.getElementById("stockOutReason").value = reason;
-  document.getElementById("stockOutTitle").textContent = (spoiled ? "Record spoiled stock: " : "Use stock: ") + p.name;
-  document.getElementById("stockOutCurrent").textContent = "In stock now: " + Number(p.quantity) + " " + p.unit;
-  document.getElementById("stockOutLabel").textContent = spoiled ? "Amount spoiled or wasted *" : "Amount used *";
-  document.getElementById("stockOutSubmit").textContent = spoiled ? "Record spoiled" : "Use stock";
-  document.getElementById("stockOutUnit").textContent = p.unit;
-  document.getElementById("stockOutAmount").value = "";
-  document.getElementById("stockOutError").textContent = "";
-  document.getElementById("stockOutDialog").showModal();
-  document.getElementById("stockOutAmount").focus();
-}
+                <input type="hidden" id="editTable">
+                <input type="hidden" id="editId">
 
-function handleUse(table, id) {
-  openStockOut(table, id, "USED");
-}
+                <label for="editName">Product name *</label><br>
+                <input type="text" id="editName" required>
+                <br><br>
 
-function handleSpoiled(table, id) {
-  openStockOut(table, id, "SPOILED");
-}
+                <label for="editSku">SKU</label><br>
+                <input type="text" id="editSku">
+                <br><br>
 
-async function handleStockOutSubmit(event) {
-  event.preventDefault();
-  const error = document.getElementById("stockOutError");
-  const table = document.getElementById("stockOutTable").value;
-  const id = document.getElementById("stockOutId").value;
-  const reason = document.getElementById("stockOutReason").value;
-  const amount = Number(document.getElementById("stockOutAmount").value);
+                <label for="editPrice">Price (PHP) - what you charge</label><br>
+                PHP <input type="number" id="editPrice" min="0" step="any">
+                <br><br>
 
-  if (!(amount > 0)) { error.textContent = "Enter an amount greater than 0."; return; }
+                <label for="editCost">Cost of this stock (PHP)</label><br>
+                PHP <input type="number" id="editCost" min="0" step="any">
+                <br><small>The whole amount, not per g / ml / pcs.</small>
+                <br><br>
 
-  const result = await useStock(table, id, amount, reason);
-  if (!result.ok) { error.textContent = result.message; return; }
+                <label for="editMinStock">Minimum stock</label><br>
+                <input type="number" id="editMinStock" min="0" step="any">
+                <span id="editMinUnit"></span>
+                <br><br>
 
-  closeDialog("stockOutDialog");
-  showMessage(result.message, true);
-  refreshAll();
-}
+                <label for="editExpiry">Expiry date (leave empty for none)</label><br>
+                <input type="date" id="editExpiry">
 
-// ---------- Edit window (<dialog id="editDialog">) ----------
+                <p id="editError" style="color:red"></p>
 
-function handleEdit(table, id) {
-  const p = findProduct(table, id);
-  document.getElementById("editTable").value = table;
-  document.getElementById("editId").value = id;
-  document.getElementById("editTitle").textContent = "Edit " + p.name;
-  document.getElementById("editName").value = p.name;
-  document.getElementById("editSku").value = p.sku || "";
-  document.getElementById("editPrice").value = p.price;
-  document.getElementById("editCost").value = p.total_cost;
-  document.getElementById("editMinStock").value = p.reorder_level;
-  document.getElementById("editMinUnit").textContent = p.unit;
-  document.getElementById("editExpiry").value = p.expiry_date || "";
-  document.getElementById("editError").textContent = "";
-  document.getElementById("editDialog").showModal();
-  document.getElementById("editName").focus();
-}
+                <button type="button" onclick="closeDialog('editDialog')">Cancel</button>
+                <button type="submit">Save changes</button>
+            </form>
+        </dialog>
 
-async function handleEditSubmit(event) {
-  event.preventDefault();
-  const error = document.getElementById("editError");
-  const table = document.getElementById("editTable").value;
-  const id = document.getElementById("editId").value;
-  const name = document.getElementById("editName").value.trim();
-  const sku = document.getElementById("editSku").value.trim();
+        <!-- ============ DELETE WINDOW ============ -->
+        <dialog id="deleteDialog" style="padding: 16px; min-width: 300px;">
+            <form onsubmit="handleDeleteSubmit(event)">
+                <h2>Delete product</h2>
+                <p id="deleteText"></p>
+                <p><small>Archive keeps the product but hides it from the main list.</small></p>
 
-  if (!name) { error.textContent = "Product name is required."; return; }
-  const skuTaken = sku && ALL.some(function (o) {
-    return o.id !== id && (o.sku || "").toLowerCase() === sku.toLowerCase();
-  });
-  if (skuTaken) { error.textContent = "That SKU is already used by another product."; return; }
+                <input type="hidden" id="deleteTable">
+                <input type="hidden" id="deleteId">
 
-  const result = await updateProduct(table, id, {
-    name: name,
-    sku: sku || null,
-    price: Number(document.getElementById("editPrice").value) || 0,
-    total_cost: Number(document.getElementById("editCost").value) || 0,
-    reorder_level: Number(document.getElementById("editMinStock").value) || 0,
-    expiry_date: document.getElementById("editExpiry").value || null
-  });
-  if (!result.ok) { error.textContent = result.message; return; }
+                <button type="button" onclick="closeDialog('deleteDialog')">Cancel</button>
+                <button type="button" id="deleteArchiveBtn" onclick="handleArchiveInstead()">Archive instead</button>
+                <button type="submit">Delete</button>
+            </form>
+        </dialog>
 
-  closeDialog("editDialog");
-  showMessage(result.message, true);
-  refreshAll();
-}
-
-function handleArchive(table, id, archive) {
-  runAction(updateProduct(table, id, { archived: archive }));
-}
-
-// ---------- Delete window (<dialog id="deleteDialog">) ----------
-
-function handleDelete(table, id) {
-  const p = findProduct(table, id);
-  document.getElementById("deleteTable").value = table;
-  document.getElementById("deleteId").value = id;
-  document.getElementById("deleteText").textContent =
-    "Delete " + p.name + "? This cannot be undone.";
-  // archiving only makes sense for products that are not archived yet
-  document.getElementById("deleteArchiveBtn").style.display = p.archived ? "none" : "inline";
-  document.getElementById("deleteDialog").showModal();
-}
-
-async function handleDeleteSubmit(event) {
-  event.preventDefault();
-  const result = await deleteProduct(
-    document.getElementById("deleteTable").value,
-    document.getElementById("deleteId").value
-  );
-  closeDialog("deleteDialog");
-  showMessage(result.message, result.ok);
-  if (result.ok) refreshAll();
-}
-
-function handleArchiveInstead() {
-  const table = document.getElementById("deleteTable").value;
-  const id = document.getElementById("deleteId").value;
-  closeDialog("deleteDialog");
-  handleArchive(table, id, true);
-}
-
-// ---------- backup ----------
-
-function handleExport() {
-  const blob = new Blob([JSON.stringify(ALL, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "ationg-inventory-" + new Date().toISOString().slice(0, 10) + ".json";
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
-// ---------- start ----------
-
-(async function start() {
-  if (!(await requireLogin())) return;
-  setTab("all");
-  refreshAll();
-})();
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="backendsystem.js"></script>
+        <script src="inventory.js"></script>
+    </body>
+</html>

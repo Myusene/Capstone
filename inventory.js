@@ -87,7 +87,7 @@ function renderInventory() {
       <td>${esc(label)}</td>
       <td>${Number(p.quantity)} ${esc(p.unit)}</td>
       <td>${money(p.price)}</td>
-      <td>${money(p.unit_cost)}</td>
+      <td>${money(p.total_cost)}</td>
       <td>${STATUS_TEXT[productStatus(p)]}</td>
       <td>
         <button onclick="handleRestock(${t})">Restock</button>
@@ -106,7 +106,7 @@ function renderStats() {
   const low = active.filter(function (p) { return productStatus(p) === "low"; });
   const out = active.filter(function (p) { return productStatus(p) === "out"; });
   const expiring = getExpiring(active, 3);
-  const value = active.reduce(function (s, p) { return s + Number(p.quantity) * Number(p.unit_cost); }, 0);
+  const value = active.reduce(function (s, p) { return s + Number(p.total_cost); }, 0);   // each entry's cost, not multiplied by quantity
 
   document.getElementById("statActive").textContent = active.length;
   document.getElementById("statActiveNote").textContent = (low.length + out.length) + " products need attention today";
@@ -164,7 +164,9 @@ function handleRestock(table, id) {
   const p = findProduct(table, id);
   const amount = prompt("Restock how many " + p.unit + " of " + p.name + "?");
   if (amount === null) return;
-  runAction(restockProduct(table, id, amount));
+  const cost = prompt("How much did this delivery cost in total (PHP)? Leave blank if unknown.", "0");
+  if (cost === null) return;
+  runAction(restockProduct(table, id, amount, cost));
 }
 
 function handleUse(table, id) {
@@ -187,7 +189,7 @@ function handleEdit(table, id) {
   const name = prompt("Product name:", p.name);              if (name === null) return;
   const sku = prompt("SKU:", p.sku || "");                    if (sku === null) return;
   const price = prompt("Price (PHP):", p.price);              if (price === null) return;
-  const unitCost = prompt("Unit cost (PHP):", p.unit_cost);   if (unitCost === null) return;
+  const cost = prompt("Cost of this stock, PHP (the whole amount, not per g / ml / pcs):", p.total_cost);   if (cost === null) return;
   const minStock = prompt("Minimum stock:", p.reorder_level); if (minStock === null) return;
   const expiry = prompt("Expiry date (YYYY-MM-DD, blank for none):", p.expiry_date || ""); if (expiry === null) return;
 
@@ -197,7 +199,7 @@ function handleEdit(table, id) {
     name: name.trim(),
     sku: sku.trim() || null,
     price: Number(price) || 0,
-    unit_cost: Number(unitCost) || 0,
+    total_cost: Number(cost) || 0,
     reorder_level: Number(minStock) || 0,
     expiry_date: expiry.trim() || null
   }));
